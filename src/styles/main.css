@@ -1,0 +1,229 @@
+@property --accent {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #7cffb2;
+}
+
+/* 底部被播放栏 / 收起胶囊占用的高度；注册为 length 才能平滑过渡 */
+@property --dock-h {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+:root {
+  transition:
+    --accent 480ms steps(6),
+    --dock-h 520ms var(--ease-out);
+  --bg: #0a0c0f;
+  --bg-2: #11151a;
+  --line: rgba(255, 255, 255, 0.07);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --text: #d8dee6;
+  --text-dim: #7b8794;
+  --accent: #7cffb2;
+
+  /* 像素字体没有中文字形，中文回退到黑体，避免落到宋体 */
+  --font-pixel: 'Silkscreen', 'PingFang SC', 'Microsoft YaHei', monospace;
+  --font-mono: 'VT323', ui-monospace, 'Cascadia Mono', 'PingFang SC', 'Microsoft YaHei', monospace;
+  --font-sans: 'Inter', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+
+  --bar-h: 76px;
+  --dock-h: 0px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.045) 1px, transparent 1.4px) 0 0 / 24px 24px,
+    var(--bg);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+button {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 1px dashed var(--accent);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* ---------- 通用控件 ---------- */
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  color: var(--accent);
+}
+
+.txt-btn {
+  padding: 2px 2px;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.txt-btn:hover,
+.txt-btn.on {
+  color: var(--accent);
+}
+
+.px-cut {
+  clip-path: polygon(
+    0 4px,
+    4px 4px,
+    4px 0,
+    calc(100% - 4px) 0,
+    calc(100% - 4px) 4px,
+    100% 4px,
+    100% calc(100% - 4px),
+    calc(100% - 4px) calc(100% - 4px),
+    calc(100% - 4px) 100%,
+    4px 100%,
+    4px calc(100% - 4px),
+    0 calc(100% - 4px)
+  );
+}
+
+.dots::after {
+  content: '';
+  animation: dots 1.2s steps(4) infinite;
+}
+
+@keyframes dots {
+  0% {
+    content: '';
+  }
+  25% {
+    content: '.';
+  }
+  50% {
+    content: '..';
+  }
+  75% {
+    content: '...';
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ---------- 浮层 ---------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--dock-h) + 24px);
+  z-index: 60;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 8px 14px;
+  transform: translateX(-50%);
+  background: var(--bg-2);
+  border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--accent);
+  font-size: 13px;
+}
+
+.scanlines {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  background: repeating-linear-gradient(rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 3px);
+}
+
+/* ---------- 过渡（阶梯式，模拟逐帧） ---------- */
+
+.bar-enter-active,
+.bar-leave-active {
+  transition: transform 520ms var(--ease-out);
+}
+.bar-enter-from,
+.bar-leave-to {
+  transform: translateY(100%);
+}
+
+.panel-enter-active,
+.panel-leave-active {
+  transition:
+    clip-path 240ms steps(6),
+    opacity 240ms steps(3);
+}
+.panel-enter-from,
+.panel-leave-to {
+  clip-path: inset(0 0 100% 0);
+  opacity: 0;
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: opacity 200ms steps(3);
+}
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,253 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import type { Track } from '../api/types'
+import { coverSources } from '../utils/cover'
+import CoverImage from './CoverImage.vue'
+
+const props = defineProps<{
+  track: Track
+  index: number
+  current: boolean
+  playing: boolean
+}>()
+
+defineEmits<{ select: [] }>()
+
+type TileSize = 's' | 'w' | 't' | 'm' | 'l'
+
+/** 出现频率即权重 */
+const SIZES: TileSize[] = ['s', 's', 's', 's', 's', 'w', 'w', 't', 't', 'm', 'm', 'l']
+const BASE_DEPTH: Record<TileSize, number> = { s: 0.3, w: 0.55, t: 0.55, m: 0.8, l: 1.05 }
+
+function hash(str: string): number {
+  let h = 2166136261
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+const seed = computed(() => hash(props.track.id))
+const size = computed(() => SIZES[seed.value % SIZES.length])
+const depth = computed(() => BASE_DEPTH[size.value] + ((seed.value >>> 8) % 100) / 400)
+const sources = computed(() =>
+  coverSources(props.track.cover, size.value === 'm' || size.value === 'l' ? 'large' : 'medium'),
+)
+</script>
+
+<template>
+  <button
+    type="button"
+    class="tile"
+    :class="[`is-${size}`, { 'is-current': current }]"
+    :style="{
+      '--depth': depth.toFixed(3),
+      '--delay': `${(index % 40) * 22}ms`,
+      zIndex: Math.round(depth * 10),
+    }"
+    :aria-label="`播放 ${track.title} - ${track.artist}`"
+    @click="$emit('select')"
+  >
+    <div class="tile-inner">
+      <CoverImage :sources="sources" />
+      <i class="shade" aria-hidden="true" />
+      <i class="frame" aria-hidden="true" />
+      <div class="meta">
+        <span class="meta-title">{{ track.title }}</span>
+        <span class="meta-artist">{{ track.artist }}</span>
+      </div>
+      <div v-if="current" class="badge" :class="{ paused: !playing }" aria-hidden="true">
+        <i /><i /><i />
+      </div>
+    </div>
+  </button>
+</template>
+
+<style scoped>
+.tile {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: crosshair;
+  text-align: left;
+}
+
+.is-w {
+  grid-column: span 2;
+}
+.is-t {
+  grid-row: span 2;
+}
+.is-m {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+.is-l {
+  grid-column: span 3;
+  grid-row: span 3;
+}
+
+@media (max-width: 720px) {
+  .is-l {
+    grid-column: span 2;
+    grid-row: span 2;
+  }
+}
+
+.tile-inner {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  transform: translate3d(
+      calc(var(--mx, 0) * var(--depth) * -26px),
+      calc(var(--my, 0) * var(--depth) * -26px),
+      0
+    )
+    scale(var(--s, 1));
+  opacity: var(--o, 1);
+  will-change: transform, opacity;
+  animation: tile-in 320ms steps(4) backwards;
+  animation-delay: var(--delay);
+}
+
+@keyframes tile-in {
+  from {
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0);
+  }
+}
+
+.shade {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 360ms steps(4);
+}
+
+.frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  --c: var(--accent);
+  --l: 14px;
+  --w: 2px;
+  box-shadow: inset 0 0 0 1px var(--line);
+  background:
+    linear-gradient(var(--c) 0 0) top left / var(--l) var(--w),
+    linear-gradient(var(--c) 0 0) top left / var(--w) var(--l),
+    linear-gradient(var(--c) 0 0) top right / var(--l) var(--w),
+    linear-gradient(var(--c) 0 0) top right / var(--w) var(--l),
+    linear-gradient(var(--c) 0 0) bottom left / var(--l) var(--w),
+    linear-gradient(var(--c) 0 0) bottom left / var(--w) var(--l),
+    linear-gradient(var(--c) 0 0) bottom right / var(--l) var(--w),
+    linear-gradient(var(--c) 0 0) bottom right / var(--w) var(--l);
+  background-repeat: no-repeat;
+  background-size: 0 0;
+}
+
+.tile:hover .frame,
+.tile:focus-visible .frame,
+.is-current .frame {
+  background-size:
+    var(--l) var(--w),
+    var(--w) var(--l),
+    var(--l) var(--w),
+    var(--w) var(--l),
+    var(--l) var(--w),
+    var(--w) var(--l),
+    var(--l) var(--w),
+    var(--w) var(--l);
+}
+
+.meta {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 22px 12px 10px;
+  background: linear-gradient(transparent, rgba(6, 8, 10, 0.88));
+  transform: translateY(100%);
+  transition: transform 180ms steps(3);
+  pointer-events: none;
+}
+
+.tile:hover .meta,
+.tile:focus-visible .meta {
+  transform: none;
+}
+
+.meta-title {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta-artist {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  line-height: 1;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 18px;
+  padding: 3px 4px;
+  background: rgba(6, 8, 10, 0.75);
+}
+
+.badge i {
+  width: 3px;
+  height: 100%;
+  background: var(--accent);
+  animation: eq 600ms steps(4) infinite alternate;
+}
+
+.badge i:nth-child(2) {
+  animation-delay: -200ms;
+}
+.badge i:nth-child(3) {
+  animation-delay: -400ms;
+}
+
+.badge.paused i {
+  animation-play-state: paused;
+}
+
+@keyframes eq {
+  from {
+    height: 25%;
+  }
+  to {
+    height: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile-inner {
+    animation: none;
+  }
+}
+</style>
