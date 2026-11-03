@@ -28,10 +28,12 @@ const page = computed(() => Math.round(pos.value))
 /** 进入过的页才播放信息块的组装动画 */
 const seen = ref<number[]>([0])
 let posRaf = 0
+/** 关闭后立刻重开时，离场中的旧分页容器仍在 DOM 里，只认当前这一个 */
+let activePager: HTMLElement | null = null
 
 function onPagerScroll(e: Event) {
   const el = e.currentTarget as HTMLElement
-  if (posRaf) return
+  if (el !== activePager || posRaf) return
   posRaf = requestAnimationFrame(() => {
     posRaf = 0
     if (!el.clientWidth) return
@@ -41,7 +43,7 @@ function onPagerScroll(e: Event) {
 }
 
 function goPage(i: number) {
-  const el = document.querySelector<HTMLElement>('.np-pager')
+  const el = activePager
   el?.scrollTo({ left: i * el.clientWidth, behavior: reduceMotion ? 'auto' : 'smooth' })
 }
 
@@ -183,8 +185,10 @@ function onEnter(el: Element, done: () => void) {
   const start = mobile.value ? ui.detailPage : 0
   pos.value = start
   seen.value = [start]
-  const pagerEl = el.querySelector<HTMLElement>('.np-pager')
-  if (pagerEl) pagerEl.scrollLeft = start * pagerEl.clientWidth
+  cancelAnimationFrame(posRaf)
+  posRaf = 0
+  activePager = el.querySelector<HTMLElement>('.np-pager')
+  if (activePager) activePager.scrollLeft = start * activePager.clientWidth
   ui.coverLifted = true
   if (reduceMotion) {
     void allDone([fade(p.shell, 0, 1, 'none')]).then(done)
@@ -595,6 +599,7 @@ function onLeave(el: Element, done: () => void) {
 }
 
 .np-m .np-head {
+  touch-action: pan-x;
   justify-content: space-between;
   align-items: center;
   padding: 0 12px 4px 16px;
@@ -635,7 +640,7 @@ function onLeave(el: Element, done: () => void) {
   pointer-events: none;
 }
 
-.np-pager {
+.np-m > .np-pager {
   flex: 1;
   min-height: 0;
   display: flex;
@@ -668,7 +673,7 @@ function onLeave(el: Element, done: () => void) {
 }
 
 [data-page='play'] {
-  justify-content: center;
+  justify-content: safe center;
   gap: 14px;
   /* 纵向拖动交给下拉关闭，横向交给翻页 */
   touch-action: pan-x;
@@ -676,7 +681,8 @@ function onLeave(el: Element, done: () => void) {
 
 [data-page='play'] .np-cover {
   align-self: center;
-  width: min(82vw, 46vh);
+  /* 播放页不能纵向滚动：给标题、进度、控制和歌词预览留出约 440px */
+  width: clamp(160px, calc(100dvh - 440px), min(82vw, 46dvh));
   margin: 4px 0 6px;
 }
 
