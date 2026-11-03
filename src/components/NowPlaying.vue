@@ -105,7 +105,10 @@ function placeGhost(ghost: HTMLElement, at: DOMRect) {
 const flipFrom = (from: DOMRect, to: DOMRect) =>
   `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width})`
 
-async function runMosaic(canvas: HTMLCanvasElement, src: string) {
+/** 每次 enter/leave 自增；迟到的回调发现代数已变就不再碰 ui 和共享元素 */
+let generation = 0
+
+async function runMosaic(canvas: HTMLCanvasElement, src: string, gen: number) {
   const ctx = canvas.getContext('2d')
   if (!ctx) return
   const img = new Image()
@@ -115,9 +118,11 @@ async function runMosaic(canvas: HTMLCanvasElement, src: string) {
   } catch {
     return
   }
+  if (gen !== generation) return
   canvas.style.opacity = '1'
   for (const [size, at] of MOSAIC_STEPS) {
     setTimeout(() => {
+      if (gen !== generation) return
       canvas.width = size
       canvas.height = size
       ctx.drawImage(img, 0, 0, size, size)
@@ -126,16 +131,18 @@ async function runMosaic(canvas: HTMLCanvasElement, src: string) {
   canvas.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, delay: 480, fill: 'forwards' })
 }
 
-function fade(el: HTMLElement, from: number, to: number) {
-  return el.animate([{ opacity: from }, { opacity: to }], { duration: 200, fill: 'forwards' })
+/** 淡入不保留终态，否则会一直压住拖拽时的内联 opacity */
+function fade(el: HTMLElement, from: number, to: number, fill: FillMode) {
+  return el.animate([{ opacity: from }, { opacity: to }], { duration: 200, fill })
 }
 
 function onEnter(el: Element, done: () => void) {
+  const gen = ++generation
   const p = parts(el)
   dragY.value = 0
   ui.coverLifted = true
   if (reduceMotion) {
-    void allDone([fade(p.shell, 0, 1)]).then(done)
+    void allDone([fade(p.shell, 0, 1, 'none')]).then(done)
     return
   }
   const h = p.shell.getBoundingClientRect().height
@@ -155,7 +162,7 @@ function onEnter(el: Element, done: () => void) {
   if (from) {
     placeGhost(p.ghost, to)
     p.cover.style.opacity = '0'
-    void runMosaic(p.mosaic, coverSources(player.current!.cover, 'small')[0])
+    void runMosaic(p.mosaic, coverSources(player.current!.cover, 'small')[0], gen)
     const fly = p.ghost.animate([{ transform: flipFrom(from, to) }, { transform: 'none' }], {
       duration: 620,
       easing: FLY_OUT,
@@ -163,10 +170,13 @@ function onEnter(el: Element, done: () => void) {
     anims.push(fly)
     void fly.finished
       .then(async () => {
+        if (gen !== generation) return
         const img = p.cover.querySelector('img')
         await Promise.race([img?.decode().catch(() => undefined), sleep(LAND_WAIT)])
+        if (gen !== generation) return
         p.cover.style.opacity = ''
         await p.ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180 }).finished
+        if (gen !== generation) return
         p.ghost.style.visibility = 'hidden'
       })
       .catch(() => undefined)
@@ -182,13 +192,18 @@ function onEnter(el: Element, done: () => void) {
 }
 
 function onLeave(el: Element, done: () => void) {
+  const gen = ++generation
+  // 打开动画若还在跑会与关闭动画抢同一属性，先全部取消再测量
+  el.getAnimations({ subtree: true }).forEach((a) => a.cancel())
   const p = parts(el)
+  p.mosaic.style.opacity = ''
+  p.ghost.style.visibility = 'hidden'
   const finish = () => {
-    ui.coverLifted = false
+    if (gen === generation) ui.coverLifted = false
     done()
   }
   if (reduceMotion) {
-    void allDone([fade(p.shell, 1, 0)]).then(finish)
+    void allDone([fade(p.shell, 1, 0, 'forwards')]).then(finish)
     return
   }
   const to = thumbRect()
