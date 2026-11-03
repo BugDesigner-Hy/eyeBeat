@@ -27,11 +27,12 @@ function onGrabMove(e: PointerEvent) {
   if (drag?.id === e.pointerId) dragY.value = Math.max(0, e.clientY - drag.y)
 }
 
-function onGrabEnd() {
-  if (!drag) return
+function onGrabEnd(e: PointerEvent) {
+  if (!drag || e.pointerId !== drag.id) return
   drag = null
+  // 关闭时保留拖出的位移，否则回弹过渡会和收起动画反向拉扯
   if (dragY.value > DRAG_CLOSE) ui.toggleMenu(false)
-  dragY.value = 0
+  else dragY.value = 0
 }
 
 const sheetStyle = computed(() => (dragY.value ? { translate: `0 ${dragY.value}px`, transition: 'none' } : undefined))
