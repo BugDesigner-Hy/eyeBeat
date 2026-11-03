@@ -25,6 +25,8 @@ let g: { id: number; x: number; y: number; axis: 'x' | 'y' | null } | null = nul
 let swallowClick = false
 
 function onDown(e: PointerEvent) {
+  // 触屏滑动后浏览器通常不补发 click，标记不能留到下一次点击
+  swallowClick = false
   if ((e.target as HTMLElement).closest('.mb-btn')) return
   g = { id: e.pointerId, x: e.clientX, y: e.clientY, axis: null }
 }
@@ -174,6 +176,7 @@ const textStyle = computed(() =>
 }
 
 .mb-thumb {
+  position: relative;
   flex: none;
   width: 44px;
   height: 44px;
