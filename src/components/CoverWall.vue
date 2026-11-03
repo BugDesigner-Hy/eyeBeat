@@ -3,9 +3,11 @@ import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { usePlayerStore } from '../stores/player'
 import { useSettingsStore } from '../stores/settings'
 import CoverTile from './CoverTile.vue'
+import { useMobile } from '../composables/useMobile'
 
 const store = usePlayerStore()
 const settings = useSettingsStore()
+const mobile = useMobile()
 const wall = ref<HTMLElement>()
 const grid = ref<HTMLElement>()
 const sentinel = ref<HTMLElement>()
@@ -71,6 +73,10 @@ function clearDecay() {
 }
 
 function frame() {
+  if (mobile.value) {
+    raf = 0
+    return
+  }
   cx += (tx - cx) * EASE
   cy += (ty - cy) * EASE
   const el = wall.value
@@ -121,6 +127,14 @@ watch(
   () => settings.wallFocus,
   (on) => (on ? schedule() : clearDecay()),
 )
+
+/** 触摸也会产生 pointermove，手机上视差会让封面互相错位 */
+watch(mobile, (m) => {
+  if (!m) return schedule()
+  wall.value?.style.removeProperty('--mx')
+  wall.value?.style.removeProperty('--my')
+  clearDecay()
+})
 
 onMounted(() => {
   if (!reduceMotion) {
@@ -232,6 +246,48 @@ onBeforeUnmount(() => {
     --cols: 3;
     --gap: 10px;
     padding-inline: 12px;
+  }
+}
+@media (max-width: 640px) {
+  .wall {
+    --cols: 2;
+    --gap: 10px;
+    padding: 72px 12px calc(var(--dock-h) + 32px);
+  }
+  .wall-head {
+    gap: 6px 12px;
+    margin-bottom: 14px;
+  }
+  .wall-title {
+    font-size: 24px;
+  }
+  .grid {
+    grid-auto-rows: auto;
+    grid-auto-flow: row;
+    row-gap: 16px;
+  }
+  /* 分区标签单行横滑，两端渐隐提示还能滑 */
+  .shelves {
+    flex-basis: 100%;
+    flex-wrap: nowrap;
+    gap: 4px;
+    margin: 0 -12px;
+    padding: 0 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    mask-image: linear-gradient(90deg, transparent, #000 12px, #000 calc(100% - 24px), transparent);
+  }
+  .shelves::-webkit-scrollbar {
+    display: none;
+  }
+  .shelves .txt-btn {
+    flex: none;
+    min-height: 40px;
+    scroll-snap-align: start;
+  }
+  .shelves .txt-btn.on {
+    box-shadow: inset 0 -2px var(--accent);
   }
 }
 

@@ -61,6 +61,10 @@ const sources = computed(() =>
         <i /><i /><i />
       </div>
     </div>
+    <span class="cap" aria-hidden="true">
+      <span class="cap-title">{{ track.title }}</span>
+      <span class="cap-artist">{{ track.artist }}</span>
+    </span>
   </button>
 </template>
 
@@ -73,6 +77,10 @@ const sources = computed(() =>
   color: inherit;
   cursor: crosshair;
   text-align: left;
+}
+
+.cap {
+  display: none;
 }
 
 .is-w {
@@ -248,6 +256,68 @@ const sources = computed(() =>
 @media (prefers-reduced-motion: reduce) {
   .tile-inner {
     animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .is-w,
+  .is-t,
+  .is-m,
+  .is-l {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .tile {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+  }
+  .tile-inner {
+    position: relative;
+    inset: auto;
+    aspect-ratio: 1;
+    transform: none;
+    opacity: 1;
+  }
+  .meta {
+    display: none;
+  }
+  .cap {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+  }
+  .cap-title {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cap-artist {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1;
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .is-current .cap-title {
+    color: var(--accent);
+  }
+}
+
+/* 触屏点过之后 :hover 会一直粘着，不能靠它显示角标 */
+@media (hover: none) {
+  .tile:hover:not(.is-current) .frame {
+    background-size: 0 0;
+  }
+  .tile:hover .meta {
+    transform: translateY(100%);
   }
 }
 </style>
