@@ -196,8 +196,10 @@ function onLeave(el: Element, done: () => void) {
   const p = parts(el)
   // 打开飞行中途关闭：从替身当前位置起飞，取消动画前先量
   const ghostAt = getComputedStyle(p.ghost).visibility === 'visible' ? p.ghost.getBoundingClientRect() : null
-  // 打开动画若还在跑会与关闭动画抢同一属性，先全部取消再测量
-  el.getAnimations({ subtree: true }).forEach((a) => a.cancel())
+  // 打开的 WAAPI 动画会与关闭动画抢同一属性；CSS 入场动画保留，否则未显现的块会闪现
+  el.getAnimations({ subtree: true }).forEach((a) => {
+    if (!(a instanceof CSSAnimation) && !(a instanceof CSSTransition)) a.cancel()
+  })
   p.mosaic.style.opacity = ''
   p.ghost.style.visibility = 'hidden'
   const finish = () => {
