@@ -208,7 +208,8 @@ export const usePlayerStore = defineStore('player', () => {
     if (mode.value === 'shuffle' || list.length < 2) return []
     const idx = list.findIndex((t) => t.id === current.value?.id)
     const out: Track[] = []
-    for (let k = 1; k <= Math.min(n, list.length - 1); k++) out.push(list[(idx + k + list.length) % list.length])
+    const max = idx === -1 ? list.length : list.length - 1
+    for (let k = 1; k <= Math.min(n, max); k++) out.push(list[(idx + k + list.length) % list.length])
     return out
   }
 
