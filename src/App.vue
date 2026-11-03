@@ -7,6 +7,7 @@ import CoverWall from './components/CoverWall.vue'
 import FxPanel from './components/FxPanel.vue'
 import LyricsBackdrop from './components/LyricsBackdrop.vue'
 import LyricsPanel from './components/LyricsPanel.vue'
+import MobileSheet from './components/MobileSheet.vue'
 import NowPlaying from './components/NowPlaying.vue'
 import PlayerBar from './components/PlayerBar.vue'
 import { useMobile } from './composables/useMobile'
@@ -62,6 +63,7 @@ watch(
   () => store.current,
   (t) => !t && ui.toggleDetail(false),
 )
+watch(mobile, (m) => !m && ui.toggleMenu(false))
 
 function onKeydown(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -127,6 +129,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
   <Transition name="toast">
     <CommandPalette v-if="ui.paletteOpen" />
+  </Transition>
+
+  <!-- 条目逐行显影比遮罩淡入结束得晚，需显式给出时长 -->
+  <Transition name="sheet" :duration="{ enter: 600, leave: 220 }">
+    <MobileSheet v-if="ui.menuOpen && mobile" />
   </Transition>
 
   <Transition name="toast">
