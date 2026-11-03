@@ -142,7 +142,7 @@ function cycleCrossfade() {
   position: fixed;
   right: 24px;
   bottom: calc(var(--dock-h) + 16px);
-  z-index: 45;
+  z-index: 57;
   width: min(420px, calc(100vw - 32px));
   padding: 0 16px 12px;
   background: rgba(10, 12, 15, 0.97);
