@@ -198,18 +198,6 @@ button {
   transform: translateY(100%);
 }
 
-.panel-enter-active,
-.panel-leave-active {
-  transition:
-    clip-path 240ms steps(6),
-    opacity 240ms steps(3);
-}
-.panel-enter-from,
-.panel-leave-to {
-  clip-path: inset(0 0 100% 0);
-  opacity: 0;
-}
-
 .toast-enter-active,
 .toast-leave-active {
   transition: opacity 200ms steps(3);

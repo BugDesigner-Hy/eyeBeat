@@ -94,6 +94,13 @@ function onPointerLeave() {
   schedule()
 }
 
+function pickShelf(id: string) {
+  if (id === store.shelf.id) return
+  void store.openShelf(id)
+  const top = wall.value?.getBoundingClientRect().top ?? 0
+  if (top < 0) wall.value?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' })
+}
+
 let io: IntersectionObserver | undefined
 let ro: ResizeObserver | undefined
 let sentinelVisible = false
@@ -154,6 +161,7 @@ onBeforeUnmount(() => {
     <div class="wall-head">
       <span class="wall-label">// {{ store.keyword ? 'SEARCH' : store.shelf.tag }}</span>
       <h1 class="wall-title">{{ store.keyword || store.shelf.name }}</h1>
+      <span v-if="store.listStale" class="wall-sync loading" role="status">SYNC<i class="dots" /></span>
       <nav v-if="!store.keyword && store.shelves.length > 1" class="shelves" aria-label="分区">
         <button
           v-for="s in store.shelves"
@@ -162,14 +170,14 @@ onBeforeUnmount(() => {
           class="txt-btn"
           :class="{ on: s.id === store.shelf.id }"
           :aria-pressed="s.id === store.shelf.id"
-          @click="s.id !== store.shelf.id && store.openShelf(s.id)"
+          @click="pickShelf(s.id)"
         >
           [{{ s.name }}]
         </button>
       </nav>
     </div>
 
-    <div class="grid-box">
+    <div class="grid-box" :class="{ stale: store.listStale }" :aria-busy="store.listStale">
       <div ref="grid" class="grid">
         <CoverTile
           v-for="(t, i) in store.tracks"
@@ -258,8 +266,20 @@ onBeforeUnmount(() => {
   color: var(--text);
 }
 
+.wall-sync {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--accent);
+}
+
 .grid-box {
   container-type: inline-size;
+  transition: opacity 160ms var(--ease-out);
+}
+
+.grid-box.stale {
+  opacity: 0.3;
+  pointer-events: none;
 }
 
 .dim-others :deep(.tile:not(.is-current):not(:hover) .shade) {

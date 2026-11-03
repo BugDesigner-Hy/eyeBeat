@@ -77,7 +77,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     <LyricsPanel v-if="ui.lyricsVisible && store.current" />
   </Transition>
 
-  <Transition name="panel">
+  <!-- 频段自检扫描比根元素的展开结束得晚，需显式给出时长 -->
+  <Transition name="fx" :duration="{ enter: 1150, leave: 340 }">
     <FxPanel v-if="ui.fxOpen" />
   </Transition>
 

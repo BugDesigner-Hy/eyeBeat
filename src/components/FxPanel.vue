@@ -60,6 +60,7 @@ function cycleCrossfade() {
 
 <template>
   <section class="fx" aria-label="音效">
+    <i class="fx-scan" aria-hidden="true" />
     <header class="fx-head">
       <span class="fx-label">FX // EQUALIZER</span>
       <button type="button" class="icon-btn" aria-label="关闭音效面板" @click="ui.toggleFx(false)">
@@ -84,7 +85,7 @@ function cycleCrossfade() {
     </div>
 
     <div class="fx-bands" :class="{ disabled: !player.fxAvailable }">
-      <div v-for="(hz, i) in EQ_BANDS" :key="hz" class="band">
+      <div v-for="(hz, i) in EQ_BANDS" :key="hz" class="band" :style="{ '--i': i }">
         <span class="band-db">{{ settings.eqGains[i] > 0 ? '+' : '' }}{{ settings.eqGains[i] }}</span>
         <div
           class="band-col"
@@ -252,5 +253,179 @@ function cycleCrossfade() {
 .txt-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+/* ---------------- 开关动效：顶线亮起 → 向下展开 → 频段自检 ---------------- */
+
+.fx-scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 12px 1px var(--accent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.band-col {
+  position: relative;
+}
+
+.band-col::after {
+  content: '';
+  position: absolute;
+  inset: 2px 6px;
+  background: linear-gradient(to top, var(--accent), color-mix(in srgb, var(--accent) 20%, transparent));
+  transform: scaleY(0);
+  transform-origin: bottom;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.fx-enter-active {
+  animation:
+    fx-unfold 560ms var(--ease-out) both,
+    fx-glow 520ms ease-out 560ms;
+}
+
+.fx-enter-active .fx-scan {
+  animation: fx-scan-down 560ms var(--ease-out) both;
+}
+
+.fx-enter-active .fx-head,
+.fx-enter-active .fx-na,
+.fx-enter-active .fx-presets,
+.fx-enter-active .fx-foot {
+  animation: fx-in 380ms var(--ease-out) 260ms both;
+}
+
+.fx-enter-active .fx-presets {
+  animation-delay: 320ms;
+}
+
+.fx-enter-active .fx-foot {
+  animation-delay: 620ms;
+}
+
+.fx-enter-active .band {
+  animation: fx-in 360ms var(--ease-out) calc(300ms + var(--i) * 36ms) both;
+}
+
+.fx-enter-active .band-col::after {
+  animation: band-test 440ms cubic-bezier(0.3, 0, 0.2, 1) calc(360ms + var(--i) * 36ms) both;
+}
+
+.fx-leave-active {
+  animation: fx-fold 340ms var(--ease-in) both;
+}
+
+.fx-leave-active > :not(.fx-scan) {
+  animation: fx-out 140ms var(--ease-in) both;
+}
+
+.fx-leave-active .fx-scan {
+  animation: fx-scan-up 340ms var(--ease-in) both;
+}
+
+/* 先只露出顶边 2px，从右向左亮起，再向下展开 */
+@keyframes fx-unfold {
+  0% {
+    clip-path: inset(0 0 calc(100% - 2px) 100%);
+  }
+  32% {
+    clip-path: inset(0 0 calc(100% - 2px) 0);
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes fx-fold {
+  0% {
+    clip-path: inset(0 0 0 0);
+  }
+  68% {
+    clip-path: inset(0 0 calc(100% - 2px) 0);
+  }
+  100% {
+    clip-path: inset(0 0 calc(100% - 2px) 100%);
+  }
+}
+
+@keyframes fx-scan-down {
+  0%,
+  32% {
+    top: 0;
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    top: calc(100% - 2px);
+    opacity: 0;
+  }
+}
+
+@keyframes fx-scan-up {
+  0% {
+    top: calc(100% - 2px);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  68%,
+  100% {
+    top: 0;
+    opacity: 1;
+  }
+}
+
+@keyframes fx-glow {
+  0% {
+    box-shadow: 0 -2px 22px color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 transparent;
+  }
+}
+
+@keyframes fx-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes fx-out {
+  to {
+    opacity: 0;
+    filter: blur(3px);
+  }
+}
+
+/* 频段自检：冲到顶再落回，露出真实增益 */
+@keyframes band-test {
+  0% {
+    transform: scaleY(0);
+    opacity: 0.9;
+  }
+  45% {
+    transform: scaleY(1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scaleY(0);
+    opacity: 0;
+  }
 }
 </style>

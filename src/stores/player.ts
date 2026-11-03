@@ -48,6 +48,8 @@ export const usePlayerStore = defineStore('player', () => {
   const keyword = ref('')
   const listLoading = ref(false)
   const listError = ref('')
+  /** 正在换分区/搜索，屏幕上还是旧列表 */
+  const listStale = ref(false)
   const hasMore = ref(true)
   let nextOffset = 0
   let listToken = 0
@@ -58,6 +60,7 @@ export const usePlayerStore = defineStore('player', () => {
     if (reset) {
       nextOffset = 0
       hasMore.value = true
+      listStale.value = tracks.value.length > 0
     }
     listLoading.value = true
     listError.value = ''
@@ -75,9 +78,15 @@ export const usePlayerStore = defineStore('player', () => {
       if (queueFollowsList) queue.value = tracks.value
       hasMore.value = fresh.length > 0
     } catch (e) {
-      if (token === listToken) listError.value = errorMessage(e)
+      if (token !== listToken) return
+      listError.value = errorMessage(e)
+      // 换分区失败时别把上一个分区的封面留在原地，否则看起来像点了没反应
+      if (reset) tracks.value = []
     } finally {
-      if (token === listToken) listLoading.value = false
+      if (token === listToken) {
+        listLoading.value = false
+        listStale.value = false
+      }
     }
   }
 
@@ -87,10 +96,12 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function openShelf(id: string) {
+    const prev = shelf.value.id
     shelfId.value = id
     localStorage.setItem(shelfKey, id)
     keyword.value = ''
-    return loadList(true)
+    // 分区真的变了由下面的 watch 负责加载
+    if (shelf.value.id === prev) return loadList(true)
   }
 
   // 登录状态晚于首屏确定：上次停在需登录的分区时，登录确认后再加载一次；退出后退回默认分区
@@ -316,6 +327,7 @@ export const usePlayerStore = defineStore('player', () => {
     keyword,
     listLoading,
     listError,
+    listStale,
     hasMore,
     loadList,
     search,
