@@ -193,9 +193,11 @@ function onEnter(el: Element, done: () => void) {
 
 function onLeave(el: Element, done: () => void) {
   const gen = ++generation
+  const p = parts(el)
+  // 打开飞行中途关闭：从替身当前位置起飞，取消动画前先量
+  const ghostAt = getComputedStyle(p.ghost).visibility === 'visible' ? p.ghost.getBoundingClientRect() : null
   // 打开动画若还在跑会与关闭动画抢同一属性，先全部取消再测量
   el.getAnimations({ subtree: true }).forEach((a) => a.cancel())
-  const p = parts(el)
   p.mosaic.style.opacity = ''
   p.ghost.style.visibility = 'hidden'
   const finish = () => {
@@ -207,7 +209,7 @@ function onLeave(el: Element, done: () => void) {
     return
   }
   const to = thumbRect()
-  const at = p.cover.getBoundingClientRect()
+  const at = ghostAt ?? p.cover.getBoundingClientRect()
   const anims: Animation[] = [
     p.content.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: EASE_IN, fill: 'forwards' }),
     p.shell.animate([{ clipPath: 'inset(0)' }, { clipPath: 'inset(100% 0 0 0)' }], {
