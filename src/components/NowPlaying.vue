@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { provider } from '../api'
+import { useMobile } from '../composables/useMobile'
 import { usePlayerStore } from '../stores/player'
 import { useUiStore } from '../stores/ui'
 import { coverSources } from '../utils/cover'
@@ -12,6 +13,7 @@ import UpNext from './UpNext.vue'
 
 const player = usePlayerStore()
 const ui = useUiStore()
+const mobile = useMobile()
 
 const DRAG_CLOSE = 120
 const DRAG_SLOP = 6
@@ -87,7 +89,7 @@ function parts(el: Element) {
 
 /** 播放栏收起时缩略图不可见，不做飞行 */
 function thumbRect(): DOMRect | null {
-  if (ui.barCollapsed) return null
+  if (ui.barCollapsed && !mobile.value) return null
   const r = document.querySelector('[data-np-thumb]')?.getBoundingClientRect()
   return r && r.width > 0 ? r : null
 }

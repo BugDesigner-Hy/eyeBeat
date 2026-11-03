@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useMobile } from '../composables/useMobile'
 import { MODE_LABEL, MODE_TITLE, usePlayerStore } from '../stores/player'
 import { useSettingsStore } from '../stores/settings'
 import { useUiStore } from '../stores/ui'
@@ -7,6 +8,7 @@ import { coverSources } from '../utils/cover'
 import { fmtTime } from '../utils/time'
 import CoverImage from './CoverImage.vue'
 import MiniDock from './MiniDock.vue'
+import MobileBar from './MobileBar.vue'
 import PixelIcon from './PixelIcon.vue'
 import RobotEyes from './RobotEyes.vue'
 import SegmentBar from './SegmentBar.vue'
@@ -15,20 +17,21 @@ import Spectrum from './Spectrum.vue'
 const store = usePlayerStore()
 const settings = useSettingsStore()
 const ui = useUiStore()
+const mobile = useMobile()
+/** 手机端只有迷你播放条，没有收起胶囊 */
+const collapsed = computed(() => ui.barCollapsed && !mobile.value)
 
 /** 首次渲染不播放扫描线动画，只在用户切换后播放 */
 const toggled = ref(false)
-watch(
-  () => ui.barCollapsed,
-  () => (toggled.value = true),
-)
+watch(collapsed, () => (toggled.value = true))
 
 const progress = computed(() => (store.duration ? store.currentTime / store.duration : 0))
 </script>
 
 <template>
-  <div v-if="store.current" class="dock" :class="{ collapsed: ui.barCollapsed, toggled }">
-    <footer class="bar" :inert="ui.barCollapsed">
+  <div v-if="store.current" class="dock" :class="{ collapsed, toggled }">
+    <MobileBar v-if="mobile" />
+    <footer v-else class="bar" :inert="collapsed">
       <button
         type="button"
         class="bar-tab stag"
@@ -132,9 +135,9 @@ const progress = computed(() => (store.duration ? store.currentTime / store.dura
         </div>
       </div>
     </footer>
-    <i class="dock-scan" aria-hidden="true" />
+    <i v-if="!mobile" class="dock-scan" aria-hidden="true" />
     <Transition name="capsule">
-      <MiniDock v-if="ui.barCollapsed" />
+      <MiniDock v-if="collapsed" />
     </Transition>
   </div>
 </template>
