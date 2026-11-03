@@ -8,12 +8,13 @@ const lyrics = useLyricsStore()
 const player = usePlayerStore()
 const settings = useSettingsStore()
 const box = ref<HTMLElement>()
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 function center(smooth: boolean) {
   const b = box.value
   const el = b?.querySelector<HTMLElement>(`[data-i="${lyrics.activeLine}"]`)
   if (!b || !el) return
-  b.scrollTo({ top: el.offsetTop - b.clientHeight / 2 + el.offsetHeight / 2, behavior: smooth ? 'smooth' : 'auto' })
+  b.scrollTo({ top: el.offsetTop - b.clientHeight / 2 + el.offsetHeight / 2, behavior: smooth && !reduceMotion ? 'smooth' : 'auto' })
 }
 
 watch(
@@ -69,8 +70,14 @@ function seekTo(time: number) {
   min-height: 160px;
   overflow-y: auto;
   scrollbar-width: none;
-  padding: 40% 0;
   mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent);
+}
+
+.dl-box::before,
+.dl-box::after {
+  content: '';
+  display: block;
+  height: 45%;
 }
 
 .dl-box::-webkit-scrollbar {
@@ -90,7 +97,7 @@ function seekTo(time: number) {
     color 240ms var(--ease-out),
     transform 240ms var(--ease-out);
   transform-origin: left center;
-  animation: np-in 360ms var(--ease-out) both;
+  animation: np-in 360ms var(--ease-out) backwards;
   animation-delay: calc(420ms + var(--k) * 40ms);
 }
 

@@ -36,7 +36,9 @@ function onDragMove(e: PointerEvent) {
     if (dy < -DRAG_SLOP) drag = null
     if (dy < DRAG_SLOP) return
     dragging.value = true
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    } catch {}
   }
   dragY.value = Math.max(0, dy)
 }
