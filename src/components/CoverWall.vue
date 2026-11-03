@@ -45,6 +45,7 @@ function measure() {
 }
 
 function schedule() {
+  if (mobile.value) return
   if (!raf) raf = requestAnimationFrame(frame)
 }
 
@@ -344,7 +345,7 @@ onBeforeUnmount(() => {
   }
   /* 分区标签单行横滑，两端渐隐提示还能滑 */
   .shelves {
-    flex-basis: 100%;
+    flex: 0 0 calc(100% + 24px);
     flex-wrap: nowrap;
     gap: 4px;
     margin: 0 -12px;
@@ -359,7 +360,7 @@ onBeforeUnmount(() => {
   }
   .shelves .txt-btn {
     flex: none;
-    min-height: 40px;
+    min-height: 44px;
     scroll-snap-align: start;
   }
   .shelves .txt-btn.on {
