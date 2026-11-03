@@ -248,49 +248,6 @@ onBeforeUnmount(() => {
     padding-inline: 12px;
   }
 }
-@media (max-width: 640px) {
-  .wall {
-    --cols: 2;
-    --gap: 10px;
-    padding: 72px 12px calc(var(--dock-h) + 32px);
-  }
-  .wall-head {
-    gap: 6px 12px;
-    margin-bottom: 14px;
-  }
-  .wall-title {
-    font-size: 24px;
-  }
-  .grid {
-    grid-auto-rows: auto;
-    grid-auto-flow: row;
-    row-gap: 16px;
-  }
-  /* 分区标签单行横滑，两端渐隐提示还能滑 */
-  .shelves {
-    flex-basis: 100%;
-    flex-wrap: nowrap;
-    gap: 4px;
-    margin: 0 -12px;
-    padding: 0 12px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    scroll-snap-type: x proximity;
-    mask-image: linear-gradient(90deg, transparent, #000 12px, #000 calc(100% - 24px), transparent);
-  }
-  .shelves::-webkit-scrollbar {
-    display: none;
-  }
-  .shelves .txt-btn {
-    flex: none;
-    min-height: 40px;
-    scroll-snap-align: start;
-  }
-  .shelves .txt-btn.on {
-    box-shadow: inset 0 -2px var(--accent);
-  }
-}
-
 .wall-head {
   display: flex;
   flex-wrap: wrap;
@@ -364,5 +321,49 @@ onBeforeUnmount(() => {
 
 .err {
   color: #ff7a7a;
+}
+
+/* 放在末尾：需要覆盖上面 .grid / .shelves 的基础规则 */
+@media (max-width: 640px) {
+  .wall {
+    --cols: 2;
+    --gap: 10px;
+    padding: 72px 12px calc(var(--dock-h) + 32px);
+  }
+  .wall-head {
+    gap: 6px 12px;
+    margin-bottom: 14px;
+  }
+  .wall-title {
+    font-size: 24px;
+  }
+  .grid {
+    grid-auto-rows: auto;
+    grid-auto-flow: row;
+    row-gap: 16px;
+  }
+  /* 分区标签单行横滑，两端渐隐提示还能滑 */
+  .shelves {
+    flex-basis: 100%;
+    flex-wrap: nowrap;
+    gap: 4px;
+    margin: 0 -12px;
+    padding: 0 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    mask-image: linear-gradient(90deg, transparent, #000 12px, #000 calc(100% - 24px), transparent);
+  }
+  .shelves::-webkit-scrollbar {
+    display: none;
+  }
+  .shelves .txt-btn {
+    flex: none;
+    min-height: 40px;
+    scroll-snap-align: start;
+  }
+  .shelves .txt-btn.on {
+    box-shadow: inset 0 -2px var(--accent);
+  }
 }
 </style>
