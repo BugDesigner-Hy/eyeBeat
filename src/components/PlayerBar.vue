@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { usePlayerStore, type PlayMode } from '../stores/player'
+import { MODE_LABEL, MODE_TITLE, usePlayerStore } from '../stores/player'
 import { useSettingsStore } from '../stores/settings'
 import { useUiStore } from '../stores/ui'
 import { coverSources } from '../utils/cover'
+import { fmtTime } from '../utils/time'
 import CoverImage from './CoverImage.vue'
 import MiniDock from './MiniDock.vue'
 import PixelIcon from './PixelIcon.vue'
@@ -22,15 +23,7 @@ watch(
   () => (toggled.value = true),
 )
 
-const MODE_LABEL: Record<PlayMode, string> = { list: 'LOOP', one: 'ONE', shuffle: 'RAND' }
-const MODE_TITLE: Record<PlayMode, string> = { list: '列表循环', one: '单曲循环', shuffle: '随机播放' }
-
 const progress = computed(() => (store.duration ? store.currentTime / store.duration : 0))
-
-function fmt(sec: number) {
-  const s = Number.isFinite(sec) && sec > 0 ? Math.floor(sec) : 0
-  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
-}
 </script>
 
 <template>
@@ -76,7 +69,7 @@ function fmt(sec: number) {
         </button>
 
         <div class="bar-controls stag" style="--d: 1">
-          <span class="time">{{ fmt(store.currentTime) }}</span>
+          <span class="time">{{ fmtTime(store.currentTime) }}</span>
           <button type="button" class="txt-btn" :title="MODE_TITLE[store.mode]" @click="store.cycleMode()">
             [{{ MODE_LABEL[store.mode] }}]
           </button>
@@ -104,7 +97,7 @@ function fmt(sec: number) {
           >
             [LRC]
           </button>
-          <span class="time dim">{{ fmt(store.duration) }}</span>
+          <span class="time dim">{{ fmtTime(store.duration) }}</span>
         </div>
 
         <div class="bar-side stag" style="--d: 0">

@@ -8,6 +8,8 @@ import { useAccountStore } from './account'
 import { useSettingsStore } from './settings'
 
 export type PlayMode = 'list' | 'one' | 'shuffle'
+export const MODE_LABEL: Record<PlayMode, string> = { list: 'LOOP', one: 'ONE', shuffle: 'RAND' }
+export const MODE_TITLE: Record<PlayMode, string> = { list: '列表循环', one: '单曲循环', shuffle: '随机播放' }
 
 const PAGE_SIZE = 40
 const MAX_AUTO_SKIP = 3

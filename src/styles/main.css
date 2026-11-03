@@ -263,6 +263,18 @@ html.ambient header.top {
   transition-duration: 1200ms;
 }
 
+/* ---------- 触控 ---------- */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 触屏没有悬停，按下时给一下强调色作为反馈 */
+@media (hover: none) {
+  .txt-btn:active {
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
