@@ -55,53 +55,224 @@ function onDragEnd() {
 const shellStyle = computed(() =>
   dragY.value ? { translate: `0 ${dragY.value}px`, opacity: String(1 - Math.min(dragY.value / 600, 0.5)) } : undefined,
 )
+
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+const EASE_OUT = 'cubic-bezier(0.16, 1, 0.3, 1)'
+const EASE_IN = 'cubic-bezier(0.7, 0, 0.84, 0)'
+const FLY_OUT = 'cubic-bezier(0.2, 0.8, 0.2, 1)'
+const FLY_BACK = 'cubic-bezier(0.6, 0, 0.8, 0.2)'
+/** 飞行途中依次提高马赛克分辨率：[边长, 开始时刻 ms] */
+const MOSAIC_STEPS: [number, number][] = [
+  [6, 0],
+  [12, 180],
+  [24, 340],
+]
+/** 大图迟迟不到时不再等，直接撤掉替身 */
+const LAND_WAIT = 400
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+const allDone = (anims: Animation[]) => Promise.all(anims.map((a) => a.finished.catch(() => undefined)))
+
+function parts(el: Element) {
+  const q = <T extends Element>(s: string) => el.querySelector(s) as T
+  return {
+    shell: q<HTMLElement>('.np-shell'),
+    content: q<HTMLElement>('.np-content'),
+    cover: q<HTMLElement>('.np-cover'),
+    scan: q<HTMLElement>('.np-scan'),
+    ghost: q<HTMLElement>('.np-ghost'),
+    mosaic: q<HTMLCanvasElement>('.np-mosaic'),
+  }
+}
+
+/** 播放栏收起时缩略图不可见，不做飞行 */
+function thumbRect(): DOMRect | null {
+  if (ui.barCollapsed) return null
+  const r = document.querySelector('[data-np-thumb]')?.getBoundingClientRect()
+  return r && r.width > 0 ? r : null
+}
+
+function placeGhost(ghost: HTMLElement, at: DOMRect) {
+  Object.assign(ghost.style, {
+    left: `${at.left}px`,
+    top: `${at.top}px`,
+    width: `${at.width}px`,
+    height: `${at.height}px`,
+    visibility: 'visible',
+  })
+}
+
+const flipFrom = (from: DOMRect, to: DOMRect) =>
+  `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width})`
+
+async function runMosaic(canvas: HTMLCanvasElement, src: string) {
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  const img = new Image()
+  img.src = src
+  try {
+    await img.decode()
+  } catch {
+    return
+  }
+  canvas.style.opacity = '1'
+  for (const [size, at] of MOSAIC_STEPS) {
+    setTimeout(() => {
+      canvas.width = size
+      canvas.height = size
+      ctx.drawImage(img, 0, 0, size, size)
+    }, at)
+  }
+  canvas.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, delay: 480, fill: 'forwards' })
+}
+
+function fade(el: HTMLElement, from: number, to: number) {
+  return el.animate([{ opacity: from }, { opacity: to }], { duration: 200, fill: 'forwards' })
+}
+
+function onEnter(el: Element, done: () => void) {
+  const p = parts(el)
+  dragY.value = 0
+  ui.coverLifted = true
+  if (reduceMotion) {
+    void allDone([fade(p.shell, 0, 1)]).then(done)
+    return
+  }
+  const h = p.shell.getBoundingClientRect().height
+  const anims: Animation[] = [
+    p.shell.animate([{ clipPath: 'inset(100% 0 0 0)' }, { clipPath: 'inset(0)' }], { duration: 520, easing: EASE_OUT }),
+    p.scan.animate(
+      [
+        { opacity: 1, transform: 'translateY(0)' },
+        { opacity: 1, offset: 0.85 },
+        { opacity: 0, transform: `translateY(${-h}px)` },
+      ],
+      { duration: 520, easing: EASE_OUT },
+    ),
+  ]
+  const to = p.cover.getBoundingClientRect()
+  const from = thumbRect()
+  if (from) {
+    placeGhost(p.ghost, to)
+    p.cover.style.opacity = '0'
+    void runMosaic(p.mosaic, coverSources(player.current!.cover, 'small')[0])
+    const fly = p.ghost.animate([{ transform: flipFrom(from, to) }, { transform: 'none' }], {
+      duration: 620,
+      easing: FLY_OUT,
+    })
+    anims.push(fly)
+    void fly.finished
+      .then(async () => {
+        const img = p.cover.querySelector('img')
+        await Promise.race([img?.decode().catch(() => undefined), sleep(LAND_WAIT)])
+        p.cover.style.opacity = ''
+        await p.ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180 }).finished
+        p.ghost.style.visibility = 'hidden'
+      })
+      .catch(() => undefined)
+  } else {
+    anims.push(
+      p.cover.animate([{ opacity: 0, transform: 'scale(0.6)' }, { opacity: 1, transform: 'none' }], {
+        duration: 420,
+        easing: EASE_OUT,
+      }),
+    )
+  }
+  void allDone(anims).then(done)
+}
+
+function onLeave(el: Element, done: () => void) {
+  const p = parts(el)
+  const finish = () => {
+    ui.coverLifted = false
+    done()
+  }
+  if (reduceMotion) {
+    void allDone([fade(p.shell, 1, 0)]).then(finish)
+    return
+  }
+  const to = thumbRect()
+  const at = p.cover.getBoundingClientRect()
+  const anims: Animation[] = [
+    p.content.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: EASE_IN, fill: 'forwards' }),
+    p.shell.animate([{ clipPath: 'inset(0)' }, { clipPath: 'inset(100% 0 0 0)' }], {
+      duration: 340,
+      delay: 80,
+      easing: EASE_IN,
+      fill: 'forwards',
+    }),
+  ]
+  if (to) {
+    placeGhost(p.ghost, at)
+    p.cover.style.opacity = '0'
+    anims.push(
+      p.ghost.animate([{ transform: 'none' }, { transform: flipFrom(to, at) }], {
+        duration: 340,
+        delay: 80,
+        easing: FLY_BACK,
+        fill: 'forwards',
+      }),
+    )
+  } else {
+    anims.push(
+      p.cover.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(0.6)' }], {
+        duration: 300,
+        easing: EASE_IN,
+        fill: 'forwards',
+      }),
+    )
+  }
+  void allDone(anims).then(finish)
+}
 </script>
 
 <template>
-  <div v-if="ui.detailOpen && player.current" class="np">
-    <section
-      class="np-shell"
-      :class="{ dragging }"
-      :style="shellStyle"
-      role="dialog"
-      aria-modal="true"
-      aria-label="正在播放"
-      @pointerdown="onDragStart"
-      @pointermove="onDragMove"
-      @pointerup="onDragEnd"
-      @pointercancel="onDragEnd"
-    >
-      <div class="np-bg" aria-hidden="true">
-        <CoverImage :sources="coverSources(player.current.cover, 'medium')" />
-      </div>
-      <i class="np-grid" aria-hidden="true" />
-      <div class="np-content">
-        <header class="np-head np-in" style="--i: 0">
-          <button type="button" class="txt-btn" title="关闭（Esc）" @click="ui.toggleDetail(false)">[CLOSE]</button>
-          <span class="np-tag">// NOW PLAYING · {{ player.providerName.toUpperCase() }}</span>
-        </header>
-        <div class="np-left">
-          <div class="np-cover">
-            <CoverImage :sources="coverSources(player.current.cover, 'large')" />
-            <i class="np-corners" aria-hidden="true" />
-          </div>
-          <DetailInfo :track="player.current" />
+  <Transition :css="false" @enter="onEnter" @leave="onLeave">
+    <div v-if="ui.detailOpen && player.current" class="np">
+      <section
+        class="np-shell"
+        :class="{ dragging }"
+        :style="shellStyle"
+        role="dialog"
+        aria-modal="true"
+        aria-label="正在播放"
+        @pointerdown="onDragStart"
+        @pointermove="onDragMove"
+        @pointerup="onDragEnd"
+        @pointercancel="onDragEnd"
+      >
+        <div class="np-bg" aria-hidden="true">
+          <CoverImage :sources="coverSources(player.current.cover, 'medium')" />
         </div>
-        <div class="np-right">
-          <DetailLyrics />
-          <div class="np-lower">
-            <UpNext />
-            <DetailTelemetry :track="player.current" />
+        <i class="np-grid" aria-hidden="true" />
+        <div class="np-content">
+          <header class="np-head np-in" style="--i: 0">
+            <button type="button" class="txt-btn" title="关闭（Esc）" @click="ui.toggleDetail(false)">[CLOSE]</button>
+            <span class="np-tag">// NOW PLAYING · {{ player.providerName.toUpperCase() }}</span>
+          </header>
+          <div class="np-left">
+            <div class="np-cover">
+              <CoverImage :sources="coverSources(player.current.cover, 'large')" />
+              <i class="np-corners" aria-hidden="true" />
+            </div>
+            <DetailInfo :track="player.current" />
+          </div>
+          <div class="np-right">
+            <DetailLyrics />
+            <div class="np-lower">
+              <UpNext />
+              <DetailTelemetry :track="player.current" />
+            </div>
           </div>
         </div>
+      </section>
+      <i class="np-scan" aria-hidden="true" />
+      <div class="np-ghost" aria-hidden="true">
+        <img :src="coverSources(player.current.cover, 'small')[0]" :crossorigin="crossOrigin" alt="" draggable="false" />
+        <canvas class="np-mosaic" width="6" height="6" />
       </div>
-    </section>
-    <i class="np-scan" aria-hidden="true" />
-    <div class="np-ghost" aria-hidden="true">
-      <img :src="coverSources(player.current.cover, 'small')[0]" :crossorigin="crossOrigin" alt="" draggable="false" />
-      <canvas class="np-mosaic" width="6" height="6" />
     </div>
-  </div>
+  </Transition>
 </template>
 
 <style scoped>
