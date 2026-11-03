@@ -55,7 +55,7 @@
 ### 第 1 页「播放」
 
 - 封面宽 `min(82vw, 46vh)`，居中，保留四角瞄准框。打开时的封面替身飞行动画（FLIP）照常落到这里。
-- 下方是 `DetailInfo` 的精简模式（新增 prop `compact`）：只显示歌名、歌手和标签行，不显示统计和描述（这两项放到第 3 页）。
+- 下方是 `DetailInfo` 的精简模式（新增 prop `part="head"`）：只显示歌名、歌手和标签行，不显示统计和描述（这两项放到第 3 页）。
 - 进度条：复用 `SegmentBar`（高 6px，分段 4），两端显示 `mm:ss`。拖动时调用 `seek`。
 - 控制行：`[LOOP/ONE/RAND]`、上一首、播放键（大号 `RobotEyes`，scale 4）、下一首、`[LRC]`（跳到第 2 页）。每个按钮的点击区域至少 44px。
 - 歌词预览：单行显示当前句（同步歌词的当前行，没有同步歌词就不显示），字体 `--font-sans`、14px、`--text-dim`。点击跳到第 2 页。
@@ -63,13 +63,13 @@
 ### 第 2 页「歌词」
 
 - 复用 `DetailLyrics`，高度占满整页。当前句继续居中滚动（已有逻辑）。
-- 长句改为 `white-space: normal` 加 `overflow-wrap: anywhere`，不再横向截断。当前句的放大效果改为改变字号（不用 `scale`），这样换行时不会溢出。
-- 点击某一行时，如果它有时间戳就 `seek` 到那里（桌面端也一样生效）。
+- 长句加上 `overflow-wrap: anywhere`，行宽限制为 `calc(100% / 1.06)`，这样当前句放大 1.06 倍后仍在框内，不会横向截断（桌面端也一样生效）。
+- 点击某一行跳到该时间点（已有行为，保持不变）。
 
 ### 第 3 页「信息」
 
 - 纵向滚动（`overflow-y: auto`，`overscroll-behavior: contain`）。
-- 从上到下依次是：统计数字和描述（`DetailInfo` 的 `section="meta"` 模式）、`DetailTelemetry`（频谱改为 16×7，避免过宽）、`UpNext`。
+- 从上到下依次是：统计数字和描述（`DetailInfo` 的 `part="meta"` 模式）、`DetailTelemetry`（频谱改为 16×7，避免过宽）、`UpNext`。
 
 ### 手势与关闭
 
@@ -109,9 +109,8 @@
   1. `ACCOUNT`：头像和昵称，或 `[LOGIN]`。点击调用 `account.openLogin(true)`。
   2. `SOURCE`：显示 `SRC::NETEASE`，点击切换到下一个音乐源（沿用 `AppHeader` 的 `switchProvider` 逻辑，抽成可复用函数）。
   3. `FX`：点击后关闭抽屉并 `ui.toggleFx(true)`。FX 面板在手机端改成从底部弹出的样式（见下）。
-  4. `BACKDROP`：显示氛围歌词开关的状态（手机端这一项不可用，显示为 `N/A`）。
-  5. `COMMANDS`：打开命令面板。
-  6. 底部信息行：`000 TRK · v版本号`。
+  4. `COMMANDS`：打开命令面板。
+  5. 底部信息行：`000 TRK · ● PLAYING / IDLE`。
 - 关闭方式：下拉把手超过 80px、点遮罩、按 Esc、或执行任意一项操作后自动关闭。
 - `ui` store 新增 `menuOpen` 和 `toggleMenu`。Esc 的优先级：菜单 > 详情页 > FX。
 
