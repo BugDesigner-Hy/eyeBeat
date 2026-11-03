@@ -2,13 +2,16 @@
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { accent } from '../theme'
 
-const props = defineProps<{ analyser: AnalyserNode | null; playing: boolean }>()
+const props = withDefaults(
+  defineProps<{ analyser: AnalyserNode | null; playing: boolean; bars?: number; rows?: number }>(),
+  { bars: 16, rows: 7 },
+)
 
-const BARS = 16
+const BARS = props.bars
 const BAR_W = 4
 const CELL_H = 3
 const GAP = 1
-const ROWS = 7
+const ROWS = props.rows
 const WIDTH = BARS * (BAR_W + GAP) - GAP
 const HEIGHT = ROWS * (CELL_H + GAP) - GAP
 

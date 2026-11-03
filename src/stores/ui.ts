@@ -12,6 +12,9 @@ export const useUiStore = defineStore('ui', () => {
   const lyricsVisible = ref(false)
   const paletteOpen = ref(false)
   const fxOpen = ref(false)
+  const detailOpen = ref(false)
+  /** 详情页的封面从缩略图“拎出”期间隐藏缩略图，飞回落位后才恢复 */
+  const coverLifted = ref(false)
   const installPrompt = shallowRef<InstallPromptEvent | null>(null)
 
   window.addEventListener('beforeinstallprompt', (e) => {
@@ -30,6 +33,7 @@ export const useUiStore = defineStore('ui', () => {
   const toggleLyrics = (v = !lyricsVisible.value) => (lyricsVisible.value = v)
   const togglePalette = (v = !paletteOpen.value) => (paletteOpen.value = v)
   const toggleFx = (v = !fxOpen.value) => (fxOpen.value = v)
+  const toggleDetail = (v = !detailOpen.value) => (detailOpen.value = v)
 
   /** 一段时间没有任何输入：用于进入氛围模式 */
   const idle = ref(false)
@@ -54,6 +58,8 @@ export const useUiStore = defineStore('ui', () => {
     lyricsVisible,
     paletteOpen,
     fxOpen,
+    detailOpen,
+    coverLifted,
     barCollapsed,
     idle,
     installPrompt,
@@ -61,6 +67,7 @@ export const useUiStore = defineStore('ui', () => {
     toggleLyrics,
     togglePalette,
     toggleFx,
+    toggleDetail,
     toggleBar,
   }
 })

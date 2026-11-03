@@ -207,6 +207,40 @@ button {
   opacity: 0;
 }
 
+/* ---------- 正在播放详情页 ---------- */
+html.detail-open {
+  overflow: hidden;
+}
+
+.np-label {
+  margin: 0 0 12px;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  line-height: 1;
+  color: var(--accent);
+  opacity: 0.8;
+}
+
+/* 信息块组装：挂载即播放，按 --i 依次出现；数据晚到的块插入时同样会播放 */
+.np-in {
+  animation: np-in 420ms var(--ease-out) both;
+  animation-delay: calc(260ms + var(--i, 0) * 50ms);
+}
+
+@keyframes np-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .np-in {
+    animation: none;
+  }
+}
+
 /* 氛围模式：封面墙与顶栏退后，退出时要快，进入时慢慢沉下去 */
 main,
 header.top {

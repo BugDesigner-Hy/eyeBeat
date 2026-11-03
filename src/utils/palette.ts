@@ -45,15 +45,20 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   })
 }
 
-/** 取封面中权重最高的色相；画面过于灰暗时返回 null */
-function dominantAccent(img: HTMLImageElement): string | null {
+function samplePixels(img: HTMLImageElement): Uint8ClampedArray | null {
   const canvas = document.createElement('canvas')
   canvas.width = SAMPLE
   canvas.height = SAMPLE
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
   if (!ctx) return null
   ctx.drawImage(img, 0, 0, SAMPLE, SAMPLE)
-  const { data } = ctx.getImageData(0, 0, SAMPLE, SAMPLE)
+  return ctx.getImageData(0, 0, SAMPLE, SAMPLE).data
+}
+
+/** 取封面中权重最高的色相；画面过于灰暗时返回 null */
+function dominantAccent(img: HTMLImageElement): string | null {
+  const data = samplePixels(img)
+  if (!data) return null
 
   const bins = new Float32Array(BINS)
   for (let i = 0; i < data.length; i += 4) {
@@ -84,6 +89,66 @@ export async function extractAccent(key: string, urls: string[]): Promise<string
       const color = dominantAccent(await loadImage(url))
       cache.set(key, color)
       return color
+    } catch {
+      // 换下一个镜像
+    }
+  }
+  return null
+}
+
+const PALETTE_ITER = 6
+const paletteCache = new Map<string, string[] | null>()
+
+type Rgb = [number, number, number]
+
+const luma = ([r, g, b]: Rgb) => 0.299 * r + 0.587 * g + 0.114 * b
+const toHex = (c: Rgb) => `#${c.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}`
+
+/** 简单 k-means：按亮度均匀取初始中心，按簇大小降序输出原始颜色 */
+function kmeansPalette(img: HTMLImageElement, k: number): string[] | null {
+  const data = samplePixels(img)
+  if (!data) return null
+  const px: Rgb[] = []
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] >= 128) px.push([data[i], data[i + 1], data[i + 2]])
+  }
+  if (px.length < k) return null
+  const sorted = [...px].sort((a, b) => luma(a) - luma(b))
+  let centers: Rgb[] = Array.from({ length: k }, (_, i) => [...sorted[Math.floor(((i + 0.5) * sorted.length) / k)]] as Rgb)
+  let counts: number[] = []
+  for (let it = 0; it < PALETTE_ITER; it++) {
+    const sums: Rgb[] = centers.map(() => [0, 0, 0])
+    counts = centers.map(() => 0)
+    for (const p of px) {
+      let best = 0
+      let bestD = Infinity
+      centers.forEach((c, j) => {
+        const d = (p[0] - c[0]) ** 2 + (p[1] - c[1]) ** 2 + (p[2] - c[2]) ** 2
+        if (d < bestD) {
+          bestD = d
+          best = j
+        }
+      })
+      sums[best][0] += p[0]
+      sums[best][1] += p[1]
+      sums[best][2] += p[2]
+      counts[best]++
+    }
+    centers = centers.map((c, j) => (counts[j] ? (sums[j].map((v) => v / counts[j]) as Rgb) : c))
+  }
+  return centers
+    .map((c, j) => ({ c, n: counts[j] }))
+    .sort((a, b) => b.n - a.n)
+    .map(({ c }) => toHex(c))
+}
+
+export async function extractPalette(key: string, urls: string[], count = 5): Promise<string[] | null> {
+  if (paletteCache.has(key)) return paletteCache.get(key) ?? null
+  for (const url of urls) {
+    try {
+      const colors = kmeansPalette(await loadImage(url), count)
+      paletteCache.set(key, colors)
+      return colors
     } catch {
       // 换下一个镜像
     }

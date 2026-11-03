@@ -70,6 +70,10 @@ export class AudioEngine {
     return this.ctx !== null
   }
 
+  get sampleRate(): number | null {
+    return this.ctx?.sampleRate ?? null
+  }
+
   on(listener: (type: EngineEvent) => void) {
     this.listener = listener
   }

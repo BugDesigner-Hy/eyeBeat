@@ -1,5 +1,5 @@
 import { parseLrc, parseYrc } from '../../../utils/lrc'
-import type { Lyrics, LyricsCandidate, LyricsSource, MusicProvider, PageOptions, Shelf, Track } from '../../types'
+import type { Lyrics, LyricsCandidate, LyricsSource, MusicProvider, PageOptions, Shelf, Track, TrackDetail, TrackStat } from '../../types'
 import { currentUid, neteaseAccount } from './account'
 import { NeteaseError, ncm } from './client'
 
@@ -22,7 +22,41 @@ interface NeteaseLyricRes {
 }
 
 interface SongUrlRes {
-  data?: { url: string | null; freeTrialInfo?: { start?: number; end?: number } | null }[]
+  data?: {
+    url: string | null
+    type?: string | null
+    /** bps */
+    br?: number
+    freeTrialInfo?: { start?: number; end?: number } | null
+  }[]
+}
+
+type QualityKey = 'l' | 'm' | 'h' | 'sq' | 'hr'
+
+interface SongDetailRes {
+  songs?: (NeteaseSong &
+    Partial<Record<QualityKey, { br?: number } | null>> & {
+      alia?: string[]
+      tns?: string[]
+      pop?: number
+      /** 毫秒时间戳 */
+      publishTime?: number
+    })[]
+}
+
+const QUALITY: [QualityKey, string][] = [
+  ['l', 'STD'],
+  ['m', 'STD'],
+  ['h', 'HQ'],
+  ['sq', 'SQ'],
+  ['hr', 'HR'],
+]
+
+/** 发行时间是北京时间零点，按本地日期格式化，避免 toISOString 退到前一天 */
+function localDate(ms: number): string {
+  const d = new Date(ms)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 const https = (url: string) => url.replace(/^http:\/\//, 'https://')
@@ -171,6 +205,31 @@ export const neteaseProvider: MusicProvider = {
     const item = res.data?.[0]
     if (!item?.url) return null
     const trial = item.freeTrialInfo
-    return { url: https(item.url), preview: !!trial, offset: trial?.start ?? 0 }
+    return {
+      url: https(item.url),
+      preview: !!trial,
+      offset: trial?.start ?? 0,
+      codec: item.type ? item.type.toUpperCase() : undefined,
+      bitrate: item.br ? Math.round(item.br / 1000) : undefined,
+    }
+  },
+
+  async getDetail(track): Promise<TrackDetail> {
+    const [detail, comments] = await Promise.all([
+      ncm<SongDetailRes>('/song/detail', { ids: track.id }),
+      ncm<{ total?: number }>('/comment/music', { id: track.id, limit: 1 }).catch(() => null),
+    ])
+    const s = detail.songs?.[0]
+    const stats: TrackStat[] = []
+    if (typeof s?.pop === 'number') stats.push({ label: 'HEAT', value: s.pop })
+    if (typeof comments?.total === 'number') stats.push({ label: 'COMMENTS', value: comments.total })
+    const quality = [...new Set(QUALITY.filter(([k]) => s?.[k]).map(([, label]) => label))]
+    const aliases = [...(s?.alia ?? []), ...(s?.tns ?? [])].filter(Boolean)
+    return {
+      released: s?.publishTime ? localDate(s.publishTime) : undefined,
+      aliases: aliases.length ? aliases : undefined,
+      quality: quality.length ? quality : undefined,
+      stats,
+    }
   },
 }

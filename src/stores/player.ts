@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { provider } from '../api'
 import { errorMessage } from '../api/http'
-import type { Track } from '../api/types'
+import type { StreamSource, Track } from '../api/types'
 import { AudioEngine } from '../audio/engine'
 import { useAccountStore } from './account'
 import { useSettingsStore } from './settings'
@@ -127,6 +127,10 @@ export const usePlayerStore = defineStore('player', () => {
   const mode = ref<PlayMode>('list')
   const notice = ref('')
   const analyser = shallowRef<AnalyserNode | null>(null)
+  /** 当前曲目的播放地址信息（编码、码率等） */
+  const streamInfo = shallowRef<StreamSource | null>(null)
+  /** 建图后才有；依赖 analyser 以便建图时刷新 */
+  const sampleRate = computed(() => (analyser.value ? engine.sampleRate : null))
 
   engine.setVolume(volume.value)
 
@@ -145,6 +149,7 @@ export const usePlayerStore = defineStore('player', () => {
     current.value = track
     currentTime.value = 0
     streamOffset.value = 0
+    streamInfo.value = null
     duration.value = track.duration
     buffering.value = true
     setMediaMetadata(track)
@@ -154,6 +159,7 @@ export const usePlayerStore = defineStore('player', () => {
       if (token !== playToken) return
       if (!stream) throw new Error(account.supported && !account.loggedIn ? '暂无可用音源，登录后再试' : '暂无可用音源')
       loaded = true
+      streamInfo.value = stream
       streamOffset.value = stream.offset ?? 0
       if (stream.preview) {
         showNotice(account.loggedIn ? '仅能播放试听片段（需要会员）' : '仅能播放试听片段，登录后可播放完整版')
@@ -194,6 +200,17 @@ export const usePlayerStore = defineStore('player', () => {
     const idx = list.findIndex((t) => t.id === current.value?.id)
     if (idx < 0) return play(list[0], { auto })
     play(list[(idx + dir + list.length) % list.length], { auto })
+  }
+
+  /** 详情页的「接下来播放」；随机模式下无法预知，返回空 */
+  function upcoming(n: number): Track[] {
+    const list = queue.value
+    if (mode.value === 'shuffle' || list.length < 2) return []
+    const idx = list.findIndex((t) => t.id === current.value?.id)
+    const out: Track[] = []
+    const max = idx === -1 ? list.length : list.length - 1
+    for (let k = 1; k <= Math.min(n, max); k++) out.push(list[(idx + k + list.length) % list.length])
+    return out
   }
 
   const next = () => step(1)
@@ -343,9 +360,12 @@ export const usePlayerStore = defineStore('player', () => {
     mode,
     notice,
     analyser,
+    streamInfo,
+    sampleRate,
     play,
     playFromList,
     toggle,
+    upcoming,
     next,
     prev,
     seek,

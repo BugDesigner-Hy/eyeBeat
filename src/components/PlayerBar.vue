@@ -58,8 +58,15 @@ function fmt(sec: number) {
       />
 
       <div class="bar-body">
-        <button type="button" class="bar-track stag" style="--d: 2" title="打开歌词" @click="ui.toggleLyrics()">
-          <span class="bar-thumb">
+        <button
+          type="button"
+          class="bar-track stag"
+          style="--d: 2"
+          title="歌曲详情"
+          :aria-expanded="ui.detailOpen"
+          @click="ui.toggleDetail()"
+        >
+          <span class="bar-thumb" :class="{ lifted: ui.coverLifted }" data-np-thumb>
             <CoverImage :sources="coverSources(store.current.cover, 'small')" />
           </span>
           <span class="bar-text">
@@ -326,6 +333,10 @@ function fmt(sec: number) {
   height: 44px;
   outline: 1px solid var(--line-strong);
   outline-offset: 2px;
+}
+
+.bar-thumb.lifted {
+  visibility: hidden;
 }
 
 .bar-text {

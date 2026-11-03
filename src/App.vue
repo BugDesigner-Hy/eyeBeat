@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, watchEffect } from 'vue'
+import { computed, onBeforeUnmount, onMounted, watch, watchEffect } from 'vue'
 import AccountDialog from './components/AccountDialog.vue'
 import AppHeader from './components/AppHeader.vue'
 import CommandPalette from './components/CommandPalette.vue'
@@ -7,6 +7,7 @@ import CoverWall from './components/CoverWall.vue'
 import FxPanel from './components/FxPanel.vue'
 import LyricsBackdrop from './components/LyricsBackdrop.vue'
 import LyricsPanel from './components/LyricsPanel.vue'
+import NowPlaying from './components/NowPlaying.vue'
 import PlayerBar from './components/PlayerBar.vue'
 import { useAccountStore } from './stores/account'
 import { useLyricsStore } from './stores/lyrics'
@@ -38,11 +39,17 @@ const ambient = computed(
     ui.idle &&
     !!lyrics.lyrics?.synced &&
     !ui.lyricsVisible &&
+    !ui.detailOpen &&
     !ui.fxOpen &&
     !ui.paletteOpen &&
     !account.loginOpen,
 )
 watchEffect(() => document.documentElement.classList.toggle('ambient', ambient.value))
+watchEffect(() => document.documentElement.classList.toggle('detail-open', ui.detailOpen))
+watch(
+  () => store.current,
+  (t) => !t && ui.toggleDetail(false),
+)
 
 function onKeydown(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -68,7 +75,8 @@ function onKeydown(e: KeyboardEvent) {
   } else if (e.key.toLowerCase() === 'b' && store.current) {
     ui.toggleBar()
   } else if (e.key === 'Escape') {
-    ui.toggleFx(false)
+    if (ui.detailOpen) ui.toggleDetail(false)
+    else ui.toggleFx(false)
   }
 }
 
@@ -87,10 +95,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   </Transition>
 
   <PlayerBar />
+  <NowPlaying />
 
   <!-- 子元素的逐行显影比根元素的动画结束得晚，需显式给出时长 -->
   <Transition name="holo" :duration="{ enter: 1000, leave: 380 }">
-    <LyricsPanel v-if="ui.lyricsVisible && store.current" />
+    <LyricsPanel v-if="ui.lyricsVisible && store.current && !ui.detailOpen" />
   </Transition>
 
   <!-- 频段自检扫描比根元素的展开结束得晚，需显式给出时长 -->
