@@ -109,13 +109,7 @@ const sources = computed(() =>
   position: absolute;
   inset: 0;
   overflow: hidden;
-  transform: translate3d(
-      calc(var(--mx, 0) * var(--depth) * -26px),
-      calc(var(--my, 0) * var(--depth) * -26px),
-      0
-    )
-    scale(var(--s, 1));
-  opacity: var(--o, 1);
+  /* transform / opacity 由 CoverWall 逐帧写入（视差 + 焦点衰减） */
   will-change: transform, opacity;
   animation: tile-in 320ms steps(4) backwards;
   animation-delay: var(--delay);
@@ -277,8 +271,6 @@ const sources = computed(() =>
     position: relative;
     inset: auto;
     aspect-ratio: 1;
-    transform: none;
-    opacity: 1;
   }
   .meta {
     display: none;

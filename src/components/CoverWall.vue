@@ -18,13 +18,23 @@ const MIN_SCALE = 0.9
 const MIN_OPACITY = 0.5
 /** 衰减半径占视口对角线的比例 */
 const RADIUS = 0.55
+/** 指针在视口边缘时，深度为 1 的封面偏移的像素数 */
+const PARALLAX = 26
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
+/**
+ * 每帧直接写可见封面的 transform / opacity。不要改成在 .wall 上写继承的 CSS 变量：
+ * 那会让墙内上千个节点每帧都重算样式，低性能机器上一帧要上百毫秒。
+ */
 interface TileBox {
-  el: HTMLElement
+  inner: HTMLElement
+  depth: number
   x: number
   y: number
+  /** 上次写入的值，没变就不写 */
+  transform: string
+  opacity: string
 }
 
 let boxes: TileBox[] = []
@@ -39,7 +49,14 @@ function measure() {
   const els = grid.value?.querySelectorAll<HTMLElement>('.tile') ?? []
   boxes = [...els].map((el) => {
     const r = el.getBoundingClientRect()
-    return { el, x: r.left + r.width / 2 + window.scrollX, y: r.top + r.height / 2 + window.scrollY }
+    return {
+      inner: el.firstElementChild as HTMLElement,
+      depth: parseFloat(el.style.getPropertyValue('--depth')) || 0,
+      x: r.left + r.width / 2 + window.scrollX,
+      y: r.top + r.height / 2 + window.scrollY,
+      transform: '',
+      opacity: '',
+    }
   })
   schedule()
 }
@@ -51,25 +68,32 @@ function schedule() {
 
 const smoothstep = (t: number) => t * t * (3 - 2 * t)
 
-function applyDecay() {
+function applyTiles() {
   const vw = window.innerWidth
   const vh = window.innerHeight
   const radius = Math.hypot(vw, vh) * RADIUS
   const sx = window.scrollX
   const sy = window.scrollY
+  const mx = (cx / vw) * 2 - 1
+  const my = (cy / vh) * 2 - 1
+  const focus = settings.wallFocus
   for (const b of boxes) {
     const y = b.y - sy
     if (y < -vh * 0.5 || y > vh * 1.5) continue
-    const t = smoothstep(Math.min(1, Math.hypot(b.x - sx - cx, y - cy) / radius))
-    b.el.style.setProperty('--s', (1 - (1 - MIN_SCALE) * t).toFixed(3))
-    b.el.style.setProperty('--o', (1 - (1 - MIN_OPACITY) * t).toFixed(3))
+    const t = focus ? smoothstep(Math.min(1, Math.hypot(b.x - sx - cx, y - cy) / radius)) : 0
+    const k = -PARALLAX * b.depth
+    const transform = `translate3d(${(mx * k).toFixed(2)}px, ${(my * k).toFixed(2)}px, 0) scale(${(1 - (1 - MIN_SCALE) * t).toFixed(3)})`
+    const opacity = (1 - (1 - MIN_OPACITY) * t).toFixed(3)
+    if (transform !== b.transform) b.inner.style.transform = b.transform = transform
+    if (opacity !== b.opacity) b.inner.style.opacity = b.opacity = opacity
   }
 }
 
-function clearDecay() {
+function clearTiles() {
   for (const b of boxes) {
-    b.el.style.removeProperty('--s')
-    b.el.style.removeProperty('--o')
+    b.inner.style.removeProperty('transform')
+    b.inner.style.removeProperty('opacity')
+    b.transform = b.opacity = ''
   }
 }
 
@@ -80,12 +104,7 @@ function frame() {
   }
   cx += (tx - cx) * EASE
   cy += (ty - cy) * EASE
-  const el = wall.value
-  if (el) {
-    el.style.setProperty('--mx', ((cx / window.innerWidth) * 2 - 1).toFixed(4))
-    el.style.setProperty('--my', ((cy / window.innerHeight) * 2 - 1).toFixed(4))
-  }
-  if (settings.wallFocus) applyDecay()
+  applyTiles()
   raf = Math.abs(tx - cx) + Math.abs(ty - cy) > 0.5 ? requestAnimationFrame(frame) : 0
 }
 
@@ -124,18 +143,10 @@ watch(
   () => nextTick(measure),
 )
 
-watch(
-  () => settings.wallFocus,
-  (on) => (on ? schedule() : clearDecay()),
-)
+watch(() => settings.wallFocus, schedule)
 
 /** 触摸也会产生 pointermove，手机上视差会让封面互相错位 */
-watch(mobile, (m) => {
-  if (!m) return schedule()
-  wall.value?.style.removeProperty('--mx')
-  wall.value?.style.removeProperty('--my')
-  clearDecay()
-})
+watch(mobile, (m) => (m ? clearTiles() : schedule()))
 
 onMounted(() => {
   if (!reduceMotion) {
