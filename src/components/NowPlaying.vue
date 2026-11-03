@@ -448,6 +448,9 @@ function onLeave(el: Element, done: () => void) {
     overflow-y: auto;
     padding: 20px 16px 28px;
   }
+  .np-content > * {
+    flex: none;
+  }
   .np-left {
     overflow: visible;
   }
