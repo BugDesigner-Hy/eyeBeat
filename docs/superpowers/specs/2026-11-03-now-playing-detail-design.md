@@ -61,7 +61,7 @@ export interface TrackDetail {
   - Audius 只填 `codec: 'MP3'`，码率显示 `--`。
 - 播放器 store 暴露 `stream = shallowRef<StreamSource | null>`（当前曲目的播放地址信息）。
 - 采样率：引擎的 `AudioContext.sampleRate`（未建图时显示 `--`）。
-- 频谱：`Spectrum.vue` 增加可选 `width` / `height` 属性（默认保持现有尺寸）。
+- 频谱：`Spectrum.vue` 增加可选 `bars` / `rows` 属性（列数、格数，默认 16 / 7 保持现有尺寸）。
 - 色板：`src/utils/palette.ts` 新增 `extractPalette(key, urls, count = 5): Promise<string[] | null>`，复用现有的图片加载与 HSL 转换，按 32×32 取样后对像素颜色做简单的 k-means 聚类（k = count，迭代 6 次），按簇大小降序输出原始颜色（不做饱和度归一），结果放进与 `extractAccent` 并列的内存缓存。`provider.coverCors === false` 时不取色，显示 `CORS::LOCKED`。
 
 ### 歌词与队列
@@ -79,7 +79,7 @@ export interface TrackDetail {
 
 ## 布局
 
-- 桌面：`position: fixed; inset: 0 0 var(--dock-h) 0; z-index: 35`（播放栏 40 在其上，封面墙在其下）。
+- 桌面：`position: fixed; inset: 0 0 var(--dock-h) 0; z-index: 55`（高于顶栏 50；详情页止于播放栏上沿，不会盖住播放栏和胶囊）。飞行中的封面替身 `z-index: 58`，扫描线 `56`。FX 面板提到 `57`，详情页打开时仍能在其上打开。
   - 背景：大封面放大模糊（`blur(60px) saturate(1.4)`、不透明度 0.28）+ 网格线 + 扫描线，强调色沿用全局 `--accent`。
   - 两栏网格：左栏宽 `min(44vh, 40vw)` 的大封面（四角像素括号框）+ `DetailInfo`；右栏上方 `DetailLyrics`，下方两列 `UpNext` 与 `DetailTelemetry`。
   - 左上角 `[CLOSE]` 与 `// NOW PLAYING` 标签。
