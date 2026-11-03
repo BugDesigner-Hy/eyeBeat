@@ -19,6 +19,26 @@ export interface Track {
   cover: CoverSet
 }
 
+export interface TrackStat {
+  /** 英文短标签，例如 PLAYS / LIKES / COMMENTS / HEAT */
+  label: string
+  value: number
+}
+
+/** 详情页用的扩展元数据，字段按音乐源能力选填 */
+export interface TrackDetail {
+  /** YYYY-MM-DD */
+  released?: string
+  aliases?: string[]
+  genre?: string
+  mood?: string
+  tags?: string[]
+  description?: string
+  /** 音质等级，从低到高，例如 ['STD', 'HQ', 'SQ', 'HR'] */
+  quality?: string[]
+  stats: TrackStat[]
+}
+
 export interface LyricWord {
   /** 秒 */
   time: number
@@ -84,6 +104,10 @@ export interface StreamSource {
   preview?: boolean
   /** 试听片段在原曲中的起点（秒），用于对齐歌词 */
   offset?: number
+  /** 大写编码名，例如 MP3 / FLAC */
+  codec?: string
+  /** kbps */
+  bitrate?: number
 }
 
 export interface AccountProfile {
@@ -129,6 +153,8 @@ export interface MusicProvider {
   search(keyword: string, opts?: PageOptions): Promise<Track[]>
   /** 返回 null 表示该曲目无可用音源（版权 / VIP 等） */
   getStream(track: Track): Promise<StreamSource | null>
+  /** 详情页的扩展元数据；不支持的音乐源不实现 */
+  getDetail?(track: Track): Promise<TrackDetail>
   /** 按曲目 ID 精确获取歌词的来源，会和公共歌词源一起参与择优 */
   readonly lyricsSource?: LyricsSource
   readonly account?: AccountApi

@@ -1,5 +1,5 @@
 import { getJson, qs, type QueryParams } from '../http'
-import type { MusicProvider, Track } from '../types'
+import type { MusicProvider, Track, TrackDetail, TrackStat } from '../types'
 
 const BASE = (import.meta.env.VITE_AUDIUS_API_BASE || 'https://api.audius.co/v1').replace(/\/$/, '')
 const APP_NAME = 'hiMusic'
@@ -14,6 +14,25 @@ interface AudiusTrack {
   is_streamable?: boolean
   artwork?: (Partial<Record<ArtworkSize, string>> & { mirrors?: string[] }) | null
   user?: { name?: string; handle?: string }
+}
+
+interface AudiusTrackDetail extends AudiusTrack {
+  release_date?: string | null
+  mood?: string | null
+  /** 逗号分隔 */
+  tags?: string | null
+  description?: string | null
+  play_count?: number
+  favorite_count?: number
+  repost_count?: number
+}
+
+function dateOnly(s?: string | null): string | undefined {
+  if (!s) return undefined
+  const m = /^\d{4}-\d{2}-\d{2}/.exec(s)
+  if (m) return m[0]
+  const d = new Date(s)
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString().slice(0, 10)
 }
 
 function toTrack(t: AudiusTrack): Track | null {
@@ -62,6 +81,33 @@ export const audiusProvider: MusicProvider = {
   },
 
   async getStream(track) {
-    return { url: `${BASE}/tracks/${encodeURIComponent(track.id)}/stream?${qs({ app_name: APP_NAME })}` }
+    return { url: `${BASE}/tracks/${encodeURIComponent(track.id)}/stream?${qs({ app_name: APP_NAME })}`, codec: 'MP3' }
+  },
+
+  async getDetail(track): Promise<TrackDetail> {
+    const { data } = await getJson<{ data?: AudiusTrackDetail }>(
+      `${BASE}/tracks/${encodeURIComponent(track.id)}?${qs({ app_name: APP_NAME })}`,
+    )
+    if (!data) throw new Error('曲目不存在')
+    const stats: TrackStat[] = []
+    for (const [label, value] of [
+      ['PLAYS', data.play_count],
+      ['LIKES', data.favorite_count],
+      ['REPOSTS', data.repost_count],
+    ] as const) {
+      if (typeof value === 'number') stats.push({ label, value })
+    }
+    const tags = data.tags
+      ?.split(',')
+      .map((t) => t.trim())
+      .filter(Boolean)
+    return {
+      released: dateOnly(data.release_date),
+      genre: data.genre || undefined,
+      mood: data.mood || undefined,
+      tags: tags?.length ? tags : undefined,
+      description: data.description?.trim() || undefined,
+      stats,
+    }
   },
 }
