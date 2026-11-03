@@ -25,6 +25,8 @@ let g: { id: number; x: number; y: number; axis: 'x' | 'y' | null } | null = nul
 let swallowClick = false
 
 function onDown(e: PointerEvent) {
+  // 只忽略同时按下的其他手指；手势外抬起的残留状态由下一次主指针覆盖
+  if (g && !e.isPrimary) return
   // 触屏滑动后浏览器通常不补发 click，标记不能留到下一次点击
   swallowClick = false
   if ((e.target as HTMLElement).closest('.mb-btn')) return
@@ -64,14 +66,16 @@ function onUp(e: PointerEvent) {
   void (raw < 0 ? store.next() : store.prev())
 }
 
-function onCancel() {
+function onCancel(e: PointerEvent) {
+  if (!g || g.id !== e.pointerId) return
   g = null
   dragging.value = false
   dx.value = 0
 }
 
-function onTrackClick() {
-  if (swallowClick) {
+function onTrackClick(e: MouseEvent) {
+  // 键盘触发的 click 没有 detail，与手势无关
+  if (swallowClick && e.detail > 0) {
     swallowClick = false
     return
   }
@@ -133,7 +137,7 @@ const textStyle = computed(() =>
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 64px;
+  height: calc(64px + env(safe-area-inset-bottom));
   padding: 0 8px env(safe-area-inset-bottom) 12px;
   background: rgba(10, 12, 15, 0.96);
   border-top: 1px solid var(--line);
@@ -257,6 +261,10 @@ const textStyle = computed(() =>
 .mb-play {
   background: var(--accent);
   color: var(--bg);
+}
+
+.mb-play.busy {
+  animation: blink 700ms steps(2) infinite;
 }
 
 .mb-btn:active {
