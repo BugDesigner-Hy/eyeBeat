@@ -207,6 +207,28 @@ button {
   opacity: 0;
 }
 
+/* 氛围模式：封面墙与顶栏退后，退出时要快，进入时慢慢沉下去 */
+main,
+header.top {
+  transition:
+    filter 260ms var(--ease-out),
+    opacity 260ms var(--ease-out);
+}
+
+html.ambient {
+  cursor: none;
+}
+
+html.ambient main {
+  filter: brightness(0.22) saturate(0.3) blur(2px);
+  transition-duration: 1200ms;
+}
+
+html.ambient header.top {
+  opacity: 0.15;
+  transition-duration: 1200ms;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

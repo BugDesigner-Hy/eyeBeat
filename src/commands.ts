@@ -51,8 +51,8 @@ export function useCommands() {
       {
         id: 'backdrop',
         group: 'LYRICS',
-        title: '墙后歌词',
-        keywords: 'backdrop lyrics wall',
+        title: '闲置氛围歌词',
+        keywords: 'backdrop lyrics wall ambient idle 氛围 墙后',
         active: settings.backdropLyrics,
         run: () => (settings.backdropLyrics = !settings.backdropLyrics),
       },

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, watchEffect } from 'vue'
+import { computed, onBeforeUnmount, onMounted, watchEffect } from 'vue'
 import AccountDialog from './components/AccountDialog.vue'
 import AppHeader from './components/AppHeader.vue'
 import CommandPalette from './components/CommandPalette.vue'
@@ -29,6 +29,20 @@ watchEffect(() => {
   const h = !store.current ? '0px' : ui.barCollapsed ? CAPSULE_DOCK : 'var(--bar-h)'
   document.documentElement.style.setProperty('--dock-h', h)
 })
+
+/** 闲置时封面墙退后、歌词成为主角；有任何面板开着时不打扰 */
+const ambient = computed(
+  () =>
+    settings.backdropLyrics &&
+    store.isPlaying &&
+    ui.idle &&
+    !!lyrics.lyrics?.synced &&
+    !ui.lyricsVisible &&
+    !ui.fxOpen &&
+    !ui.paletteOpen &&
+    !account.loginOpen,
+)
+watchEffect(() => document.documentElement.classList.toggle('ambient', ambient.value))
 
 function onKeydown(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -68,7 +82,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     <CoverWall />
   </main>
 
-  <LyricsBackdrop v-if="settings.backdropLyrics && store.current && lyrics.lyrics?.synced" />
+  <Transition name="ambient" :duration="{ enter: 900, leave: 260 }">
+    <LyricsBackdrop v-if="ambient" />
+  </Transition>
 
   <PlayerBar />
 
