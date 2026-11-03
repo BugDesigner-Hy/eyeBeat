@@ -94,10 +94,10 @@ function fmtDuration(sec: number): string {
 }
 
 .di-title {
-  margin: 0 0 10px;
+  margin: 0 0 4px;
   font-size: clamp(22px, 2.6vw, 34px);
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.15;
   overflow-wrap: anywhere;
 }
 
@@ -124,7 +124,7 @@ function fmtDuration(sec: number): string {
 }
 
 .di-artist {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   font-size: 15px;
   color: var(--text);
 }
@@ -139,7 +139,7 @@ function fmtDuration(sec: number): string {
 }
 
 .di-alias {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   font-size: 13px;
   color: var(--text-dim);
 }
@@ -148,7 +148,7 @@ function fmtDuration(sec: number): string {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin: 4px 0 18px;
+  margin: 2px 0 18px;
   padding: 0;
   list-style: none;
 }
