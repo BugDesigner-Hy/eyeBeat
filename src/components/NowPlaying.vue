@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { provider } from '../api'
 import { useMobile } from '../composables/useMobile'
 import { useLyricsStore } from '../stores/lyrics'
@@ -30,6 +30,19 @@ const seen = ref<number[]>([0])
 let posRaf = 0
 /** 关闭后立刻重开时，离场中的旧分页容器仍在 DOM 里，只认当前这一个 */
 let activePager: HTMLElement | null = null
+let activeRoot: Element | null = null
+
+/** 打开状态下跨越断点（例如旋转手机）时分页容器会重建，要重新认领 */
+watch(mobile, () =>
+  nextTick(() => {
+    if (!activeRoot) return
+    cancelAnimationFrame(posRaf)
+    posRaf = 0
+    activePager = activeRoot.querySelector<HTMLElement>('.np-pager')
+    pos.value = 0
+    seen.value = [0]
+  }),
+)
 
 function onPagerScroll(e: Event) {
   const el = e.currentTarget as HTMLElement
@@ -187,6 +200,7 @@ function onEnter(el: Element, done: () => void) {
   seen.value = [start]
   cancelAnimationFrame(posRaf)
   posRaf = 0
+  activeRoot = el
   activePager = el.querySelector<HTMLElement>('.np-pager')
   if (activePager) activePager.scrollLeft = start * activePager.clientWidth
   ui.coverLifted = true
@@ -243,6 +257,7 @@ function onEnter(el: Element, done: () => void) {
 function onLeave(el: Element, done: () => void) {
   const gen = ++generation
   const p = parts(el)
+  if (activeRoot === el) activeRoot = null
   // 打开飞行中途关闭：从替身当前位置起飞，取消动画前先量
   const ghostAt = getComputedStyle(p.ghost).visibility === 'visible' ? p.ghost.getBoundingClientRect() : null
   // 打开的 WAAPI 动画会与关闭动画抢同一属性；CSS 入场动画保留，否则未显现的块会闪现

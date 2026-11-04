@@ -271,6 +271,7 @@ const sources = computed(() =>
     position: relative;
     inset: auto;
     aspect-ratio: 1;
+    will-change: auto;
   }
   .meta {
     display: none;

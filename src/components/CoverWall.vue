@@ -108,7 +108,9 @@ function frame() {
   raf = Math.abs(tx - cx) + Math.abs(ty - cy) > 0.5 ? requestAnimationFrame(frame) : 0
 }
 
+/** 只跟随鼠标：触摸拖动也会产生 pointermove，平板上滑动时封面会乱晃 */
 function onPointerMove(e: PointerEvent) {
+  if (e.pointerType !== 'mouse') return
   tx = e.clientX
   ty = e.clientY
   schedule()
@@ -143,9 +145,16 @@ watch(
   () => nextTick(measure),
 )
 
-watch(() => settings.wallFocus, schedule)
+/** 先全部清掉：没有滚动监听时（减弱动效），视口外的封面不会再被重写 */
+watch(
+  () => settings.wallFocus,
+  () => {
+    clearTiles()
+    schedule()
+  },
+)
 
-/** 触摸也会产生 pointermove，手机上视差会让封面互相错位 */
+/** 手机上没有视差（窄屏布局下封面会互相错位） */
 watch(mobile, (m) => (m ? clearTiles() : schedule()))
 
 onMounted(() => {
