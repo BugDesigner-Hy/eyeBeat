@@ -95,6 +95,7 @@ const sourceLabel = computed(() => {
   <aside
     v-if="player.current"
     class="lyrics"
+    :class="{ 'is-pixel': settings.pixelLyrics }"
     :style="{ translate: `${offset.x}px ${offset.y}px` }"
     aria-label="歌词"
   >
@@ -784,5 +785,33 @@ const sourceLabel = computed(() => {
 .ly-offset-value {
   min-width: 46px;
   color: var(--text);
+}
+
+/* ---------- 像素歌词 ---------- */
+
+.lyrics.is-pixel .ly-line {
+  font-family: var(--font-pixel-mix);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  letter-spacing: 0.04em;
+  image-rendering: pixelated;
+}
+
+.lyrics.is-pixel .ly-line small {
+  font-family: var(--font-pixel-mix);
+  font-size: 12px;
+}
+
+.lyrics.is-pixel .ly-line.active {
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 28px;
+}
+
+.lyrics.is-pixel .ly-hint,
+.lyrics.is-pixel .ly-state {
+  font-family: var(--font-pixel-mix);
+  font-size: 12px;
 }
 </style>

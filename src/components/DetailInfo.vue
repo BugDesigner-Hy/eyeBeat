@@ -58,15 +58,17 @@ const metaChips = computed(() => {
 <template>
   <div class="di" :class="{ 'di-brief': part === 'brief' }">
     <p class="np-label np-in" style="--i: 1">// TRACK</p>
-    <h2 class="di-title np-in" style="--i: 1">
-      <span :key="track.id" class="di-type" :style="{ '--n': typeSteps }">{{ track.title }}</span>
-    </h2>
-    <p class="di-artist np-in" style="--i: 2">
-      {{ track.artist }}
-      <template v-if="track.album">
-        <span class="sep">·</span><span class="dim">{{ track.album }}</span>
-      </template>
-    </p>
+    <div class="di-head" data-np-info>
+      <h2 class="di-title np-in" style="--i: 1">
+        <span :key="track.id" class="di-type" :style="{ '--n': typeSteps }">{{ track.title }}</span>
+      </h2>
+      <p class="di-artist np-in" style="--i: 2">
+        {{ track.artist }}
+        <template v-if="track.album">
+          <span class="sep">·</span><span class="dim">{{ track.album }}</span>
+        </template>
+      </p>
+    </div>
     <p v-if="info?.aliases?.length" class="di-alias np-in" style="--i: 3">{{ info.aliases.join(' / ') }}</p>
     <ul v-if="metaChips.length" class="di-tags np-in" style="--i: 3">
       <li v-for="c in metaChips" :key="c">{{ c }}</li>
@@ -80,7 +82,7 @@ const metaChips = computed(() => {
         :style="{ '--i': 4 + i }"
         :role="s.label === 'COMMENTS' ? 'button' : undefined"
         :tabindex="s.label === 'COMMENTS' ? 0 : undefined"
-        :title="s.label === 'COMMENTS' ? '查看评论' : undefined"
+        :title="s.label === 'COMMENTS' ? '展开 / 收起评论' : undefined"
         @click="s.label === 'COMMENTS' && emit('open-comments')"
         @keydown.enter.prevent="s.label === 'COMMENTS' && emit('open-comments')"
         @keydown.space.prevent="s.label === 'COMMENTS' && emit('open-comments')"
@@ -104,12 +106,19 @@ const metaChips = computed(() => {
   min-width: 0;
 }
 
+.di-head {
+  min-width: 0;
+}
+
 .di-title {
   margin: 0 0 4px;
-  font-size: clamp(22px, 2.6vw, 34px);
-  font-weight: 700;
-  line-height: 1.15;
+  font-family: var(--font-pixel-mix);
+  font-size: clamp(24px, 3vw, 36px);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
   overflow-wrap: anywhere;
+  image-rendering: pixelated;
 }
 
 /* 逐字打出：按字数分步展开，末尾带光标 */
@@ -136,8 +145,13 @@ const metaChips = computed(() => {
 
 .di-artist {
   margin: 0 0 6px;
-  font-size: 15px;
+  font-family: var(--font-pixel-mix);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 16px;
   color: var(--text);
+  image-rendering: pixelated;
 }
 
 .sep {

@@ -1,17 +1,20 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { availableProviders, provider, switchProvider } from '../api'
+import { nextProvider, switchProvider } from '../api'
+import { useI18n } from '../i18n'
 import { useAccountStore } from '../stores/account'
 import { usePlayerStore } from '../stores/player'
 import { useUiStore } from '../stores/ui'
+import BrandLogo from './BrandLogo.vue'
 import PixelAvatar from './PixelAvatar.vue'
 import VipBadge from './VipBadge.vue'
 
 const store = usePlayerStore()
 const account = useAccountStore()
 const ui = useUiStore()
+const { t } = useI18n()
 const query = ref(store.keyword)
-const nextProvider = availableProviders.find((p) => p.id !== provider.id)
+const nextSrc = nextProvider()
 
 function submit() {
   if (query.value.trim() !== store.keyword) store.search(query.value)
@@ -25,7 +28,7 @@ function clear() {
 
 <template>
   <header class="top">
-    <a class="logo" href="/" @click.prevent="clear">HI<span>/</span>MUSIC</a>
+    <BrandLogo @clear="clear" />
 
     <form class="search" role="search" @submit.prevent="submit">
       <span class="prompt">&gt;</span>
@@ -35,19 +38,19 @@ function clear() {
         placeholder="SEARCH TRACKS / ARTISTS"
         spellcheck="false"
         autocomplete="off"
-        aria-label="搜索"
+        :aria-label="t('header.search')"
       />
       <button v-if="store.keyword" type="button" class="txt-btn" @click="clear">[CLR]</button>
     </form>
 
     <div class="status">
-      <button type="button" class="txt-btn" title="命令面板" @click="ui.togglePalette(true)">[CTRL+K]</button>
+      <button type="button" class="txt-btn" :title="t('header.palette')" @click="ui.togglePalette(true)">[CTRL+K]</button>
       <button
         v-if="account.supported"
         type="button"
         class="txt-btn acct-btn"
         :class="{ on: account.loggedIn }"
-        :title="account.loggedIn ? '网易云账号' : '扫码登录网易云'"
+        :title="account.loggedIn ? t('header.account') : t('header.login')"
         @click="account.openLogin(true)"
       >
         <PixelAvatar v-if="account.profile" :seed="account.profile.id" :size="18" />
@@ -56,11 +59,11 @@ function clear() {
       </button>
       <i class="dot" :class="{ live: store.isPlaying }" />
       <button
-        v-if="nextProvider"
+        v-if="nextSrc"
         type="button"
         class="txt-btn src-btn"
-        :title="`切换到 ${nextProvider.name}`"
-        @click="switchProvider(nextProvider.id)"
+        :title="t('header.switchSrc', { name: nextSrc.name })"
+        @click="switchProvider(nextSrc.id)"
       >
         SRC::{{ store.providerName.toUpperCase() }}
       </button>
@@ -69,8 +72,8 @@ function clear() {
       <button
         type="button"
         class="pwr-btn"
-        title="关机（P）"
-        aria-label="关机"
+        :title="t('header.power')"
+        :aria-label="t('cmd.powerOff')"
         @click="ui.powerToggle()"
       >
         <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
@@ -85,8 +88,8 @@ function clear() {
     <button
       type="button"
       class="pwr-btn mobile-pwr"
-      title="关机（P）"
-      aria-label="关机"
+      :title="t('header.power')"
+      :aria-label="t('cmd.powerOff')"
       @click="ui.powerToggle()"
     >
       <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true">
@@ -100,7 +103,7 @@ function clear() {
     <button
       type="button"
       class="menu-btn"
-      aria-label="菜单"
+      :aria-label="t('header.menu')"
       :aria-expanded="ui.menuOpen"
       @click="ui.toggleMenu(true)"
     >
@@ -128,19 +131,6 @@ function clear() {
 
 .top > * {
   pointer-events: auto;
-}
-
-.logo {
-  justify-self: start;
-  font-family: var(--font-pixel);
-  font-size: 16px;
-  letter-spacing: 0.06em;
-  color: var(--text);
-  text-decoration: none;
-}
-
-.logo span {
-  color: var(--accent);
 }
 
 .search {
@@ -275,9 +265,6 @@ function clear() {
     gap: 4px;
     height: calc(56px + env(safe-area-inset-top));
     padding: env(safe-area-inset-top) 8px 0 14px;
-  }
-  .logo {
-    font-size: 12px;
   }
   .search {
     height: 36px;

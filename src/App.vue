@@ -12,6 +12,7 @@ import MobileSheet from './components/MobileSheet.vue'
 import NowPlaying from './components/NowPlaying.vue'
 import PlayerBar from './components/PlayerBar.vue'
 import PowerOffScreen from './components/PowerOffScreen.vue'
+import ScrollTopFab from './components/ScrollTopFab.vue'
 import { useMobile } from './composables/useMobile'
 import { useAccountStore } from './stores/account'
 import { useLyricsStore } from './stores/lyrics'
@@ -107,9 +108,9 @@ function onKeydown(e: KeyboardEvent) {
   } else if (e.code === 'Space') {
     e.preventDefault()
     store.toggle()
-  } else if (e.key === 'ArrowRight') {
+  } else if (e.key === 'ArrowRight' && e.shiftKey) {
     store.seek(store.currentTime + 5)
-  } else if (e.key === 'ArrowLeft') {
+  } else if (e.key === 'ArrowLeft' && e.shiftKey) {
     store.seek(store.currentTime - 5)
   } else if (e.key.toLowerCase() === 'l' && store.current) {
     // 手机：打开到歌词层；已打开时也切到歌词（NowPlaying 监听 detailPage）
@@ -141,6 +142,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   </Transition>
 
   <PlayerBar />
+  <ScrollTopFab />
   <NowPlaying />
 
   <!-- 子元素的逐行显影比根元素的动画结束得晚，需显式给出时长 -->

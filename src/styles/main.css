@@ -23,10 +23,12 @@
   --text-dim: #7b8794;
   --accent: #7cffb2;
 
-  /* 像素字体没有中文字形，中文回退到黑体，避免落到宋体 */
+  /* 仅拉丁像素字；后面的系统黑体只作最后兜底 */
   --font-pixel: 'Silkscreen', 'PingFang SC', 'Microsoft YaHei', monospace;
   /* 12px 网格的中文像素字体，只能用 12 的整数倍字号 */
   --font-pixel-cjk: 'Ark Pixel 12px', 'PingFang SC', 'Microsoft YaHei', monospace;
+  /* 中英混排：Silkscreen 缺字后再走 Ark Pixel，勿把系统黑体插在中间 */
+  --font-pixel-mix: 'Silkscreen', 'Ark Pixel 12px', 'PingFang SC', 'Microsoft YaHei', monospace;
   --font-mono: 'VT323', ui-monospace, 'Cascadia Mono', 'PingFang SC', 'Microsoft YaHei', monospace;
   --font-sans: 'Inter', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
 
@@ -188,7 +190,12 @@ button {
   background: var(--bg-2);
   border: 1px solid var(--line-strong);
   border-left: 3px solid var(--accent);
-  font-size: 13px;
+  font-family: var(--font-pixel-mix);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 16px;
+  image-rendering: pixelated;
 }
 
 .scanlines {
@@ -220,6 +227,16 @@ button {
 }
 
 /* ---------- 正在播放详情页 ---------- */
+html.wall-canvas {
+  overflow: hidden;
+  height: 100%;
+}
+
+html.wall-canvas body {
+  height: 100%;
+  overflow: hidden;
+}
+
 html.detail-open {
   overflow: hidden;
 }

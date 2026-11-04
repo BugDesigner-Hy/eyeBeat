@@ -3,8 +3,13 @@ import { nextTick, ref } from 'vue'
 export type FoldPhase = 'open' | 'closing' | 'closed' | 'opening'
 
 interface FoldOptions {
-  /** 折叠轴：x 收向右边缘，y 收向下边缘 */
+  /** 折叠轴：x 横向压扁，y 纵向压扁 */
   axis: 'x' | 'y'
+  /**
+   * 收向哪一侧（仅 axis=x 时有意义）：
+   * end=右侧细轨（评论栏），start=左侧细轨（封面信息）
+   */
+  edge?: 'start' | 'end'
   root: () => HTMLElement | null | undefined
   /** 折叠框里乱码的标题 */
   label: () => string
@@ -118,10 +123,18 @@ export function useFold(o: FoldOptions) {
     if (!body || !dock || !box || !line || !tag) return anims
 
     const x = o.axis === 'x'
+    const start = o.edge === 'start'
     const br = body.getBoundingClientRect()
     const size = x ? br.width : br.height
     box.style[x ? 'width' : 'height'] = `${size}px`
-    line.style[x ? 'right' : 'bottom'] = `${size / 2 - 1}px`
+    box.style.transformOrigin = x ? (start ? 'left center' : 'right center') : 'center bottom'
+    if (x) {
+      line.style.left = ''
+      line.style.right = ''
+      line.style[start ? 'left' : 'right'] = `${size / 2 - 1}px`
+    } else {
+      line.style.bottom = `${size / 2 - 1}px`
+    }
     const lr = line.getBoundingClientRect()
     const dr = dock.getBoundingClientRect()
     const slide = x ? `translateX(${dr.left - lr.left}px)` : `translateY(${dr.top - lr.top}px)`

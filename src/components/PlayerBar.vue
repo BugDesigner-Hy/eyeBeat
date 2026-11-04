@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useMobile } from '../composables/useMobile'
-import { MODE_LABEL, MODE_TITLE, usePlayerStore } from '../stores/player'
+import { useI18n } from '../i18n'
+import { MODE_LABEL, MODE_TITLE_KEY, usePlayerStore } from '../stores/player'
 import { useSettingsStore } from '../stores/settings'
 import { useUiStore } from '../stores/ui'
 import { coverSources } from '../utils/cover'
@@ -10,13 +11,14 @@ import CoverImage from './CoverImage.vue'
 import MiniDock from './MiniDock.vue'
 import MobileBar from './MobileBar.vue'
 import PixelIcon from './PixelIcon.vue'
-import RobotEyes from './RobotEyes.vue'
+import RobotEyes, { type EyeCue } from './RobotEyes.vue'
 import SegmentBar from './SegmentBar.vue'
 import Spectrum from './Spectrum.vue'
 
 const store = usePlayerStore()
 const settings = useSettingsStore()
 const ui = useUiStore()
+const { t } = useI18n()
 const mobile = useMobile()
 /** 手机端只有迷你播放条，没有收起胶囊 */
 const collapsed = computed(() => ui.barCollapsed && !mobile.value)
@@ -26,6 +28,23 @@ const toggled = ref(false)
 watch(collapsed, () => (toggled.value = true))
 
 const progress = computed(() => (store.duration ? store.currentTime / store.duration : 0))
+
+/** 由详情页飞行态驱动：拎走时隐藏，飞回底栏落位后再显示 */
+const hideMeta = computed(() => ui.coverLifted)
+
+const eyeCue = ref<EyeCue | null>(null)
+const eyePoke = ref(0)
+
+function setCue(c: EyeCue) {
+  eyeCue.value = c
+}
+function clearCue(c: EyeCue) {
+  if (eyeCue.value === c) eyeCue.value = null
+}
+function poke(c: EyeCue) {
+  eyeCue.value = c
+  eyePoke.value++
+}
 </script>
 
 <template>
@@ -36,20 +55,26 @@ const progress = computed(() => (store.duration ? store.currentTime / store.dura
         type="button"
         class="bar-tab stag"
         style="--d: 0"
-        aria-label="收起播放栏"
-        title="收起播放栏（B）"
-        @click="ui.toggleBar(true)"
+        :aria-label="t('player.collapse')"
+        :title="`${t('player.collapse')} (B)`"
+        @pointerenter="setCue('collapse')"
+        @pointerleave="clearCue('collapse')"
+        @click="poke('collapse'); ui.toggleBar(true)"
       >
         <PixelIcon name="chevron-down" />
       </button>
       <SegmentBar
         class="bar-progress stag"
         style="--d: 0"
-        label="播放进度"
+        :label="t('player.progress')"
         :value="progress"
         :seg="5"
         :gap="2"
         :height="3"
+        smooth="seek"
+        @pointerenter="setCue('seek')"
+        @pointerleave="clearCue('seek')"
+        @pointerdown="poke('seek')"
         @change="(v) => store.seek(v * store.duration)"
       />
 
@@ -58,14 +83,16 @@ const progress = computed(() => (store.duration ? store.currentTime / store.dura
           type="button"
           class="bar-track stag"
           style="--d: 2"
-          title="歌曲详情"
+          :title="t('player.detail')"
           :aria-expanded="ui.detailOpen"
-          @click="ui.toggleDetail()"
+          @pointerenter="setCue('detail')"
+          @pointerleave="clearCue('detail')"
+          @click="poke('detail'); ui.toggleDetail()"
         >
-          <span class="bar-thumb" :class="{ lifted: ui.coverLifted }" data-np-thumb>
+          <span class="bar-thumb" :class="{ lifted: hideMeta }" data-np-thumb>
             <CoverImage :sources="coverSources(store.current.cover, 'small')" />
           </span>
-          <span class="bar-text">
+          <span class="bar-text" :class="{ lifted: hideMeta }" data-np-bar-text>
             <span class="bar-title">{{ store.current.title }}</span>
             <span class="bar-artist">{{ store.current.artist }}</span>
           </span>
@@ -73,30 +100,53 @@ const progress = computed(() => (store.duration ? store.currentTime / store.dura
 
         <div class="bar-controls stag" style="--d: 1">
           <span class="time">{{ fmtTime(store.currentTime) }}</span>
-          <button type="button" class="txt-btn" :title="MODE_TITLE[store.mode]" @click="store.cycleMode()">
+          <button
+            type="button"
+            class="txt-btn"
+            :title="t(MODE_TITLE_KEY[store.mode])"
+            @pointerenter="setCue('mode')"
+            @pointerleave="clearCue('mode')"
+            @click="poke('mode'); store.cycleMode()"
+          >
             [{{ MODE_LABEL[store.mode] }}]
           </button>
-          <button type="button" class="icon-btn" aria-label="上一首" @click="store.prev()">
+          <button
+            type="button"
+            class="icon-btn"
+            :aria-label="t('player.prev')"
+            @pointerenter="setCue('prev')"
+            @pointerleave="clearCue('prev')"
+            @click="poke('prev'); store.prev()"
+          >
             <PixelIcon name="prev" />
           </button>
           <button
             type="button"
             class="play-btn px-cut"
             :class="{ busy: store.buffering, on: store.isPlaying }"
-            :aria-label="store.isPlaying ? '暂停' : '播放'"
+            :aria-label="store.isPlaying ? t('player.pause') : t('player.play')"
             @click="store.toggle()"
           >
-            <RobotEyes :on="store.isPlaying" :analyser="store.analyser" />
+            <RobotEyes :on="store.isPlaying" :analyser="store.analyser" :cue="eyeCue" :poke="eyePoke" />
           </button>
-          <button type="button" class="icon-btn" aria-label="下一首" @click="store.next()">
+          <button
+            type="button"
+            class="icon-btn"
+            :aria-label="t('player.next')"
+            @pointerenter="setCue('next')"
+            @pointerleave="clearCue('next')"
+            @click="poke('next'); store.next()"
+          >
             <PixelIcon name="next" />
           </button>
           <button
             type="button"
             class="txt-btn"
             :class="{ on: ui.lyricsVisible }"
-            title="歌词"
-            @click="ui.toggleLyrics()"
+            :title="t('player.lyrics')"
+            @pointerenter="setCue('lyrics')"
+            @pointerleave="clearCue('lyrics')"
+            @click="poke('lyrics'); ui.toggleLyrics()"
           >
             [LRC]
           </button>
@@ -109,26 +159,40 @@ const progress = computed(() => (store.duration ? store.currentTime / store.dura
             type="button"
             class="txt-btn"
             :class="{ on: ui.fxOpen || settings.bitcrush || settings.eqPreset !== 'flat' }"
-            title="音效"
-            @click="ui.toggleFx()"
+            :title="t('player.fx')"
+            @pointerenter="setCue('fx')"
+            @pointerleave="clearCue('fx')"
+            @click="poke('fx'); ui.toggleFx()"
           >
             [FX]
           </button>
           <button
             type="button"
-            class="icon-btn"
-            :aria-label="store.muted ? '取消静音' : '静音'"
-            @click="store.toggleMute()"
+            class="icon-btn vol-btn"
+            :class="{ muted: store.muted || store.volume === 0 }"
+            :aria-label="store.muted ? t('player.unmute') : t('player.mute')"
+            @pointerenter="setCue(store.muted || store.volume === 0 ? 'unmute' : 'mute')"
+            @pointerleave="clearCue('mute'); clearCue('unmute')"
+            @click="poke(store.muted || store.volume === 0 ? 'unmute' : 'mute'); store.toggleMute()"
           >
-            <PixelIcon :name="store.muted || store.volume === 0 ? 'mute' : 'volume'" />
+            <Transition name="vol-icon" mode="out-in">
+              <PixelIcon
+                :key="store.muted || store.volume === 0 ? 'mute' : 'volume'"
+                :name="store.muted || store.volume === 0 ? 'mute' : 'volume'"
+              />
+            </Transition>
           </button>
           <SegmentBar
             class="bar-volume"
-            label="音量"
+            :label="t('player.volume')"
             :value="store.muted ? 0 : store.volume"
             :seg="4"
             :gap="2"
             :height="10"
+            smooth
+            @pointerenter="setCue('volume')"
+            @pointerleave="clearCue('volume')"
+            @pointerdown="poke('volume')"
             @input="store.setVolume"
             @change="store.setVolume"
           />
@@ -342,22 +406,33 @@ const progress = computed(() => (store.duration ? store.currentTime / store.dura
   gap: 2px;
 }
 
+.bar-text.lifted {
+  visibility: hidden;
+}
+
 .bar-title {
-  font-size: 14px;
-  font-weight: 600;
+  font-family: var(--font-pixel-mix);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 16px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  image-rendering: pixelated;
 }
 
 .bar-artist {
-  font-family: var(--font-mono);
-  font-size: 16px;
-  line-height: 1;
+  font-family: var(--font-pixel-mix);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 16px;
   color: var(--text-dim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  image-rendering: pixelated;
 }
 
 .bar-track:hover .bar-title {
@@ -442,6 +517,49 @@ const progress = computed(() => (store.duration ? store.currentTime / store.dura
 
 .bar-volume {
   width: 96px;
+}
+
+.vol-btn {
+  transition:
+    color 220ms var(--ease-out),
+    transform 220ms var(--ease-out);
+}
+
+.vol-btn.muted {
+  color: var(--text-dim);
+}
+
+.vol-btn:active {
+  transform: scale(0.88);
+}
+
+.vol-icon-enter-active,
+.vol-icon-leave-active {
+  transition:
+    opacity 160ms var(--ease-out),
+    transform 220ms cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.vol-icon-leave-to {
+  opacity: 0;
+  transform: scale(0.55) rotate(-28deg);
+}
+
+.vol-icon-enter-from {
+  opacity: 0;
+  transform: scale(0.55) rotate(28deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vol-btn,
+  .vol-icon-enter-active,
+  .vol-icon-leave-active {
+    transition: none;
+  }
+  .vol-icon-leave-to,
+  .vol-icon-enter-from {
+    transform: none;
+  }
 }
 
 @media (max-width: 900px) {

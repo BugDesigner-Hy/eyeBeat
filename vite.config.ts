@@ -19,9 +19,9 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         includeAssets: ['apple-touch-icon.png'],
         manifest: {
-          name: 'HI/MUSIC',
-          short_name: 'HI/MUSIC',
-          description: '像素点缀的科技感网页音乐播放器',
+          name: 'EyeBeat',
+          short_name: 'EyeBeat',
+          description: '像素风封面墙音乐播放器',
           lang: 'zh-CN',
           display: 'standalone',
           theme_color: '#0a0c0f',

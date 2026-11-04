@@ -1,5 +1,6 @@
 import { lrclibSource } from './lyrics/lrclib'
 import { audiusProvider } from './providers/audius'
+import { jamendoConfigured, jamendoProvider } from './providers/jamendo'
 import { neteaseConfigured, neteaseProvider, neteaseSearchLyricsSource } from './providers/netease'
 import type { LyricsSource, MusicProvider, ProviderId } from './types'
 
@@ -7,6 +8,7 @@ const PROVIDER_KEY = 'himusic.provider'
 
 const providers: Partial<Record<ProviderId, MusicProvider>> = {
   audius: audiusProvider,
+  ...(jamendoConfigured ? { jamendo: jamendoProvider } : {}),
   ...(neteaseConfigured ? { netease: neteaseProvider } : {}),
 }
 
@@ -24,6 +26,14 @@ export function switchProvider(id: ProviderId) {
   if (id === provider.id || !providers[id]) return
   localStorage.setItem(PROVIDER_KEY, id)
   location.reload()
+}
+
+/** 循环切到下一个已注册音乐源；不足两个时返回 undefined */
+export function nextProvider(): MusicProvider | undefined {
+  const list = availableProviders
+  if (list.length < 2) return undefined
+  const i = list.findIndex((p) => p.id === provider.id)
+  return list[(i < 0 ? 0 : i + 1) % list.length]
 }
 
 /** 参与择优的歌词源：音乐源自带的精确来源 + 公共来源 */

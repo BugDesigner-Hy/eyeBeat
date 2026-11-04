@@ -32,10 +32,10 @@ let ptrX = 0
 let ptrY = 0
 let ptrMoved = false
 
-/** 约 12 RPM：vel × (1000/60) °/帧 @60fps */
-const SPIN = 0.072
-const FRICTION = 0.965
-const STOP = 0.002
+/** 约 6 RPM：vel × (1000/60) °/帧 @60fps，比实体黑胶更慢一截 */
+const SPIN = 0.036
+const FRICTION = 0.978
+const STOP = 0.0015
 const TAP = 10
 const WIPE_MS = 680
 

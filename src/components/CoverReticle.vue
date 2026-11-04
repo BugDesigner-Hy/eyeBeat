@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { coverCanvasCamera } from '../composables/coverCanvasCamera'
 import { useMobile } from '../composables/useMobile'
 import { usePlayerStore } from '../stores/player'
 import { useSettingsStore } from '../stores/settings'
@@ -287,7 +288,7 @@ function placeLabel(text: string, b: Box) {
   return xf(x, clamp(y, 4, window.innerHeight - lh - 4))
 }
 
-function aim(prevId?: string | null) {
+async function aim(prevId?: string | null) {
   clearTimeout(resumeTimer)
   pending = false
   const id = player.current?.id
@@ -299,15 +300,44 @@ function aim(prevId?: string | null) {
   }
   const from = currentBox()
   cancelAll()
-  const tile = findTile(id)
-  const inner = tile?.querySelector<HTMLElement>('.tile-inner')
+  const aimRun = run
+
+  // 画布：镜头与准星并行；远处随机切歌会瞬移，不再 await 整段镜头
+  const canvas = coverCanvasCamera()
+  let camShiftX = 0
+  let camShiftY = 0
+  if (canvas && performance.now() - userScrollAt >= USER_SCROLL_MS) {
+    const move = canvas.ensureVisible(id)
+    if (move) {
+      camShiftX = move.shiftX
+      camShiftY = move.shiftY
+      void move.done
+    }
+  }
+  await nextTick()
+  if (aimRun !== run) return
+
+  let tile = findTile(id)
+  let inner = tile?.querySelector<HTMLElement>('.tile-inner')
   const reg = region()
-  const r = inner?.getBoundingClientRect()
+  let r = inner?.getBoundingClientRect()
+  // 瞬移后偶发 DOM 晚一帧：只再等一帧，绝不卡满镜头时长
+  if (canvas && (!tile || !inner || !r || hRatio(r, reg) < 0.5)) {
+    await new Promise<void>((res) => requestAnimationFrame(() => res()))
+    if (aimRun !== run) return
+    tile = findTile(id)
+    inner = tile?.querySelector<HTMLElement>('.tile-inner')
+    r = inner?.getBoundingClientRect()
+    if (tile && inner && r && hRatio(r, reg) >= 0.5) {
+      camShiftX = 0
+      camShiftY = 0
+    }
+  }
   // 被歌词面板挡住的列纵向滚动也露不出来，同样按“不在视野内”处理
   if (!tile || !inner || !r || hRatio(r, reg) < 0.5) return edgeFlash(reg)
 
   let dy = 0
-  if (visibleRatio(r, reg) < 0.5) {
+  if (!canvas && visibleRatio(r, reg) < 0.5) {
     if (performance.now() - userScrollAt < USER_SCROLL_MS) return
     const max = document.documentElement.scrollHeight - window.innerHeight
     const y = clamp(window.scrollY + r.top + r.height / 2 - (reg.top + reg.bottom) / 2, 0, max)
@@ -323,7 +353,13 @@ function aim(prevId?: string | null) {
   }
 
   if (Math.abs(dy) >= 1) scrollTo(window.scrollY + dy)
-  fly(from ?? sourceBox(prevId, reg), { x: r.left, y: r.top - dy, w: r.width, h: r.height }, !!from, tile, inner)
+  fly(
+    from ?? sourceBox(prevId, reg),
+    { x: r.left + camShiftX, y: r.top - dy + camShiftY, w: r.width, h: r.height },
+    !!from,
+    tile,
+    inner,
+  )
 }
 
 function fly(src: Box, target: Box, fromVisible: boolean, tile: HTMLElement, inner: HTMLElement) {
@@ -537,6 +573,10 @@ function onVisibility() {
   }
 }
 
+function onCanvasPan() {
+  userScrolled(performance.now())
+}
+
 onMounted(() => {
   window.addEventListener('scroll', onScroll, { passive: true })
   window.addEventListener('wheel', onInput, { passive: true })
@@ -546,6 +586,7 @@ onMounted(() => {
   window.addEventListener('pointerup', onPointerUp, { passive: true, capture: true })
   window.addEventListener('pointercancel', onPointerUp, { passive: true, capture: true })
   window.addEventListener('resize', onResize, { passive: true })
+  window.addEventListener('himusic:canvas-pan', onCanvasPan)
   document.addEventListener('visibilitychange', onVisibility)
 })
 
@@ -560,6 +601,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointerup', onPointerUp, { capture: true })
   window.removeEventListener('pointercancel', onPointerUp, { capture: true })
   window.removeEventListener('resize', onResize)
+  window.removeEventListener('himusic:canvas-pan', onCanvasPan)
   document.removeEventListener('visibilitychange', onVisibility)
 })
 </script>

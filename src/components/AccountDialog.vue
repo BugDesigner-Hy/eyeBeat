@@ -228,8 +228,12 @@ onBeforeUnmount(() => {
 
 .hint {
   margin: 0;
+  font-family: var(--font-pixel-mix);
   font-size: 12px;
-  line-height: 1.6;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 16px;
   color: var(--text-dim);
+  image-rendering: pixelated;
 }
 </style>

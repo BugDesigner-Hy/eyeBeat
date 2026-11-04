@@ -9,7 +9,11 @@ import { useSettingsStore } from './settings'
 
 export type PlayMode = 'list' | 'one' | 'shuffle'
 export const MODE_LABEL: Record<PlayMode, string> = { list: 'LOOP', one: 'ONE', shuffle: 'RAND' }
-export const MODE_TITLE: Record<PlayMode, string> = { list: '列表循环', one: '单曲循环', shuffle: '随机播放' }
+export const MODE_TITLE_KEY: Record<PlayMode, string> = {
+  list: 'mode.list',
+  one: 'mode.one',
+  shuffle: 'mode.shuffle',
+}
 
 const PAGE_SIZE = 40
 const MAX_AUTO_SKIP = 3

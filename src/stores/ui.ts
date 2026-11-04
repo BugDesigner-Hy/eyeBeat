@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, shallowRef } from 'vue'
 
 const BAR_KEY = 'himusic.barCollapsed'
-const IDLE_MS = 4000
+const IDLE_MS = 30_000
 
 /** 手机端详情页的分页：0 播放、1 歌词、2 信息、3 评论 */
 export type DetailPage = 0 | 1 | 2
@@ -16,7 +16,7 @@ export const useUiStore = defineStore('ui', () => {
   const paletteOpen = ref(false)
   const fxOpen = ref(false)
   const detailOpen = ref(false)
-  /** 详情页的封面从缩略图“拎出”期间隐藏缩略图，飞回落位后才恢复 */
+  /** 详情页展开左侧封面时：底栏封面+歌名被“拎走”；收起左侧或关闭落位后恢复 */
   const coverLifted = ref(false)
   const detailPage = ref<DetailPage>(0)
   /** 桌面窄屏（< 1440px）详情页的评论抽屉 */

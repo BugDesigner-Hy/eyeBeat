@@ -8,6 +8,7 @@ const props = defineProps<{
   flash?: number
 }>()
 
+/** 七段：a顶 b上右 c下右 d底 e下左 f上左 g中 */
 const DIGITS: Record<string, string> = {
   '0': 'abcdef',
   '1': 'bc',
@@ -21,6 +22,17 @@ const DIGITS: Record<string, string> = {
   '9': 'abcdfg',
   '-': 'g',
   ' ': '',
+}
+
+/** 像素块七段，整数坐标、直角边 */
+const SEGS: Record<string, { x: number; y: number; w: number; h: number }> = {
+  a: { x: 2, y: 1, w: 7, h: 2 },
+  b: { x: 8, y: 2, w: 2, h: 7 },
+  c: { x: 8, y: 12, w: 2, h: 7 },
+  d: { x: 2, y: 18, w: 7, h: 2 },
+  e: { x: 1, y: 12, w: 2, h: 7 },
+  f: { x: 1, y: 2, w: 2, h: 7 },
+  g: { x: 2, y: 10, w: 7, h: 2 },
 }
 
 const now = ref(new Date())
@@ -41,10 +53,11 @@ const text = computed(() => {
 })
 
 const cells = computed(() => text.value.split('').map((ch) => (ch === ':' ? ':' : ch)))
+const colonOn = computed(() => now.value.getSeconds() % 2 === 0)
+const label = computed(() => (props.mode === 'date' ? '// DATE' : '// TIME'))
 
 function pad() {
   now.value = new Date()
-  // 每秒刷新：冒号闪烁 + 整分跳变
   tick = window.setTimeout(pad, 1000 - (Date.now() % 1000))
 }
 
@@ -67,36 +80,43 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="ssc" :class="{ dim: !lit }" aria-hidden="true">
-    <template v-for="(ch, i) in cells" :key="`${i}-${ch}`">
-      <span v-if="ch === ':'" class="ssc-colon" :class="{ on: now.getSeconds() % 2 === 0 }">
-        <i /><i />
-      </span>
-      <svg v-else class="ssc-digit" viewBox="0 0 12 20" width="28" height="46">
-        <g
-          v-for="seg in 'abcdefg'"
-          :key="seg"
-          class="ssc-seg"
-          :class="[seg, { on: DIGITS[ch]?.includes(seg) }]"
+    <span class="ssc-label">{{ label }}</span>
+    <div class="ssc-face">
+      <template v-for="(ch, i) in cells" :key="`${i}-${ch}`">
+        <span v-if="ch === ':'" class="ssc-colon" :class="{ on: colonOn }">
+          <i /><i />
+        </span>
+        <svg
+          v-else
+          class="ssc-digit"
+          viewBox="0 0 11 21"
+          width="36"
+          height="68"
+          shape-rendering="crispEdges"
         >
-          <polygon v-if="seg === 'a'" points="2.5,1.5 3.5,0.5 8.5,0.5 9.5,1.5 8.5,2.5 3.5,2.5" />
-          <polygon v-if="seg === 'b'" points="9.5,2.5 10.5,3.5 10.5,8 9.5,9 8.5,8 8.5,3.5" />
-          <polygon v-if="seg === 'c'" points="9.5,11 10.5,12 10.5,16.5 9.5,17.5 8.5,16.5 8.5,12" />
-          <polygon v-if="seg === 'd'" points="2.5,18.5 3.5,17.5 8.5,17.5 9.5,18.5 8.5,19.5 3.5,19.5" />
-          <polygon v-if="seg === 'e'" points="2.5,11 3.5,12 3.5,16.5 2.5,17.5 1.5,16.5 1.5,12" />
-          <polygon v-if="seg === 'f'" points="2.5,2.5 3.5,3.5 3.5,8 2.5,9 1.5,8 1.5,3.5" />
-          <polygon v-if="seg === 'g'" points="2.5,10 3.5,9 8.5,9 9.5,10 8.5,11 3.5,11" />
-        </g>
-      </svg>
-    </template>
+          <rect
+            v-for="(box, seg) in SEGS"
+            :key="seg"
+            class="ssc-seg"
+            :class="{ on: DIGITS[ch]?.includes(seg) }"
+            :x="box.x"
+            :y="box.y"
+            :width="box.w"
+            :height="box.h"
+          />
+        </svg>
+      </template>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .ssc {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
+  gap: 10px;
+  image-rendering: pixelated;
   transition: opacity 80ms steps(2);
 }
 
@@ -104,35 +124,53 @@ onBeforeUnmount(() => {
   opacity: 0.35;
 }
 
+.ssc-label {
+  font-family: var(--font-pixel-mix);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: color-mix(in srgb, var(--accent) 55%, #6a7580);
+  image-rendering: pixelated;
+}
+
+.ssc-face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
 .ssc-digit {
   display: block;
   overflow: visible;
+  image-rendering: pixelated;
 }
 
 .ssc-seg {
-  fill: color-mix(in srgb, var(--accent) 14%, #12161c);
-  transition: fill 120ms steps(2);
+  fill: color-mix(in srgb, var(--accent) 12%, #12161c);
+  transition: fill 80ms steps(1);
 }
 
 .ssc-seg.on {
   fill: var(--accent);
-  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 70%, transparent));
 }
 
 .ssc-colon {
   display: grid;
-  gap: 10px;
-  padding: 0 2px;
+  gap: 12px;
+  padding: 0 4px;
+  align-content: center;
+  height: 68px;
 }
 
 .ssc-colon i {
-  width: 5px;
-  height: 5px;
-  background: color-mix(in srgb, var(--accent) 14%, #12161c);
+  width: 6px;
+  height: 6px;
+  background: color-mix(in srgb, var(--accent) 12%, #12161c);
+  image-rendering: pixelated;
 }
 
 .ssc-colon.on i {
   background: var(--accent);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 70%, transparent);
+  box-shadow: 2px 0 0 color-mix(in srgb, var(--accent) 35%, transparent);
 }
 </style>

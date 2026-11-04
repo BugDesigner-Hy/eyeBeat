@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { EQ_BANDS, EQ_PRESETS, EQ_RANGE, formatBand } from '../audio/eq'
+import { useI18n } from '../i18n'
 import { usePlayerStore } from '../stores/player'
 import { useSettingsStore } from '../stores/settings'
 import { useUiStore } from '../stores/ui'
@@ -8,6 +9,7 @@ import PixelIcon from './PixelIcon.vue'
 const player = usePlayerStore()
 const settings = useSettingsStore()
 const ui = useUiStore()
+const { t } = useI18n()
 
 /** 每格 2dB，±12dB 共 13 格 */
 const STEP_DB = 2
@@ -59,16 +61,16 @@ function cycleCrossfade() {
 </script>
 
 <template>
-  <section class="fx" aria-label="音效">
+  <section class="fx" :aria-label="t('fx.aria')">
     <i class="fx-scan" aria-hidden="true" />
     <header class="fx-head">
       <span class="fx-label">FX // EQUALIZER</span>
-      <button type="button" class="icon-btn" aria-label="关闭音效面板" @click="ui.toggleFx(false)">
+      <button type="button" class="icon-btn" :aria-label="t('fx.close')" @click="ui.toggleFx(false)">
         <PixelIcon name="close" />
       </button>
     </header>
 
-    <p v-if="!player.fxAvailable" class="fx-na">当前音源不支持跨域读取音频，均衡器与 8-bit 不可用</p>
+    <p v-if="!player.fxAvailable" class="fx-na">{{ t('fx.na') }}</p>
 
     <div class="fx-presets" :class="{ disabled: !player.fxAvailable }">
       <button
@@ -79,9 +81,9 @@ function cycleCrossfade() {
         :class="{ on: settings.eqPreset === id }"
         @click="settings.applyEqPreset(id)"
       >
-        [{{ p.label }}]
+        [{{ t(p.labelKey) }}]
       </button>
-      <span v-if="settings.eqPreset === 'custom'" class="fx-custom">[自定义]</span>
+      <span v-if="settings.eqPreset === 'custom'" class="fx-custom">[{{ t('eq.custom') }}]</span>
     </div>
 
     <div class="fx-bands" :class="{ disabled: !player.fxAvailable }">
@@ -119,7 +121,7 @@ function cycleCrossfade() {
         class="txt-btn"
         :class="{ on: settings.bitcrush }"
         :disabled="!player.fxAvailable"
-        title="位深量化 + 降采样"
+        :title="t('fx.bitcrush')"
         @click="settings.bitcrush = !settings.bitcrush"
       >
         [8-BIT {{ settings.bitcrush ? 'ON' : 'OFF' }}]
@@ -128,7 +130,7 @@ function cycleCrossfade() {
         type="button"
         class="txt-btn"
         :class="{ on: settings.crossfade }"
-        title="切歌淡入淡出时长"
+        :title="t('fx.crossfade')"
         @click="cycleCrossfade"
       >
         [XFADE {{ settings.crossfade ? `${settings.crossfadeSec}S` : 'OFF' }}]
@@ -137,10 +139,19 @@ function cycleCrossfade() {
         type="button"
         class="txt-btn"
         :class="{ on: settings.reticleLocate }"
-        title="切歌时准星定位到封面墙上的新歌"
+        :title="t('fx.reticle')"
         @click="settings.reticleLocate = !settings.reticleLocate"
       >
-        [准星 {{ settings.reticleLocate ? 'ON' : 'OFF' }}]
+        [AIM {{ settings.reticleLocate ? 'ON' : 'OFF' }}]
+      </button>
+      <button
+        type="button"
+        class="txt-btn"
+        :class="{ on: settings.wallLayout === 'canvas' }"
+        :title="t('fx.wall')"
+        @click="settings.wallLayout = settings.wallLayout === 'canvas' ? 'waterfall' : 'canvas'"
+      >
+        [{{ settings.wallLayout === 'canvas' ? t('fx.wallCanvas') : t('fx.wallWaterfall') }}]
       </button>
     </footer>
   </section>
@@ -175,8 +186,13 @@ function cycleCrossfade() {
 
 .fx-na {
   margin: 0 0 8px;
+  font-family: var(--font-pixel-mix);
   font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 16px;
   color: #ffb347;
+  image-rendering: pixelated;
 }
 
 .fx-presets {

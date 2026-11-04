@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useCommentsStore } from '../stores/comments'
+import { useSettingsStore } from '../stores/settings'
 import { fmtNum } from '../utils/num'
 import CommentItem from './CommentItem.vue'
 
 const props = defineProps<{ embedded?: boolean }>()
 const store = useCommentsStore()
+const settings = useSettingsStore()
 const thread = computed(() => store.thread)
 
 const STAGGER_MAX = 10
@@ -45,7 +47,7 @@ watch([thread, () => thread.value?.loading], () => nextTick(rearm))
 </script>
 
 <template>
-  <section class="cm" :class="{ embedded }" data-no-drag>
+  <section class="cm" :class="{ embedded, 'is-pixel': settings.pixelComments }" data-no-drag>
     <div class="cm-head np-in" style="--i: 1">
       <p class="np-label">
         // COMMENTS<b v-if="store.total != null" class="cm-total">{{ fmtNum(store.total) }}</b>
@@ -176,5 +178,16 @@ watch([thread, () => thread.value?.loading], () => nextTick(rearm))
 .cm-sentinel {
   display: block;
   height: 1px;
+}
+
+.cm.is-pixel .cm-foot {
+  font-family: var(--font-pixel-mix);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.cm.is-pixel .cm-foot .txt-btn {
+  font-family: var(--font-pixel-mix);
+  font-size: 12px;
 }
 </style>

@@ -1,4 +1,4 @@
-export type ProviderId = 'audius' | 'netease'
+export type ProviderId = 'audius' | 'netease' | 'jamendo'
 
 export interface CoverSet {
   small: string

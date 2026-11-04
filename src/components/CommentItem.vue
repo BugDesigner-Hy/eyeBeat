@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { TrackComment } from '../api/types'
+import { useSettingsStore } from '../stores/settings'
 import { fmtNum } from '../utils/num'
 import { relTime } from '../utils/time'
 import PixelAvatar from './PixelAvatar.vue'
 import PixelIcon from './PixelIcon.vue'
 
 const props = defineProps<{ c: TrackComment; reply?: boolean }>()
+const settings = useSettingsStore()
 
 const MAX_REPLIES = 2
 
@@ -21,7 +23,7 @@ const more = computed(() => Math.max(0, (props.c.replyCount ?? 0) - replies.valu
 </script>
 
 <template>
-  <article class="cc" :class="{ reply }">
+  <article class="cc" :class="{ reply, 'is-pixel': settings.pixelComments }">
     <span class="cc-avatar" aria-hidden="true">
       <PixelAvatar :seed="seed" :size="reply ? 20 : 28" />
     </span>
@@ -159,5 +161,39 @@ const more = computed(() => Math.max(0, (props.c.replyCount ?? 0) - replies.valu
   font-family: var(--font-mono);
   font-size: 15px;
   color: var(--text-dim);
+}
+
+.cc.is-pixel .cc-meta,
+.cc.is-pixel .cc-more {
+  font-family: var(--font-pixel-mix);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.cc.is-pixel .cc-name {
+  font-family: var(--font-pixel-mix);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+.cc.is-pixel .cc-text {
+  font-family: var(--font-pixel-mix);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  letter-spacing: 0.04em;
+  image-rendering: pixelated;
+}
+
+.cc.is-pixel.reply .cc-text {
+  font-size: 12px;
+}
+
+.cc.is-pixel .cc-quote {
+  font-family: var(--font-pixel-mix);
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.04em;
 }
 </style>

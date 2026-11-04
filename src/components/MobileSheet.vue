@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { availableProviders, provider, switchProvider } from '../api'
+import { nextProvider, switchProvider } from '../api'
 import { useAccountStore } from '../stores/account'
 import { usePlayerStore } from '../stores/player'
 import { useSettingsStore } from '../stores/settings'
@@ -12,7 +12,7 @@ const ui = useUiStore()
 const account = useAccountStore()
 const player = usePlayerStore()
 const settings = useSettingsStore()
-const nextProvider = availableProviders.find((p) => p.id !== provider.id)
+const nextSrc = nextProvider()
 
 const DRAG_CLOSE = 80
 const dragY = ref(0)
@@ -76,13 +76,13 @@ function run(fn: () => void) {
           <button
             type="button"
             class="ms-row"
-            :disabled="!nextProvider"
-            @click="nextProvider && run(() => switchProvider(nextProvider!.id))"
+            :disabled="!nextSrc"
+            @click="nextSrc && run(() => switchProvider(nextSrc!.id))"
           >
             <span class="ms-key">SOURCE</span>
             <span class="ms-val">
               SRC::{{ player.providerName.toUpperCase() }}
-              <span v-if="nextProvider" class="ms-dim">→ {{ nextProvider.name.toUpperCase() }}</span>
+              <span v-if="nextSrc" class="ms-dim">→ {{ nextSrc.name.toUpperCase() }}</span>
             </span>
           </button>
         </li>

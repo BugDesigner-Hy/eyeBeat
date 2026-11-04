@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { provider } from '../api'
 import { FOLD_ANIM, useFold } from '../composables/useFold'
 import { useMobile } from '../composables/useMobile'
 import { useMobileDetail } from '../composables/useMobileDetail'
 import { useWide } from '../composables/useWide'
 import { useCommentsStore } from '../stores/comments'
-import { MODE_LABEL, MODE_TITLE, usePlayerStore } from '../stores/player'
+import { useI18n } from '../i18n'
+import { MODE_LABEL, MODE_TITLE_KEY, usePlayerStore } from '../stores/player'
 import { useSettingsStore } from '../stores/settings'
 import { useUiStore } from '../stores/ui'
 import { coverSources, markCoverFailed, usableCovers } from '../utils/cover'
@@ -25,6 +26,7 @@ import UpNext from './UpNext.vue'
 
 const player = usePlayerStore()
 const ui = useUiStore()
+const { t } = useI18n()
 const mobile = useMobile()
 const comments = useCommentsStore()
 const wide = useWide()
@@ -47,10 +49,57 @@ watch(
 
 const settings = useSettingsStore()
 const content = ref<HTMLElement>()
+const coverCol = ref<HTMLElement>()
 const cmtCol = ref<HTMLElement>()
 const lowerWrap = ref<HTMLElement>()
 const cmtCount = computed(() => (comments.total != null ? fmtNum(comments.total) : '--'))
 const px = (v: number[]) => v.map((n) => `${n}px`).join(' ')
+
+/** 折叠态 gap 轨道为 0 时，用 --np-gap 探针还原展开目标间距 */
+function resolveGap(el: HTMLElement, from: number[]): number {
+  if (from[1] > 1) return from[1]
+  if (from[3] > 1) return from[3]
+  const probe = document.createElement('i')
+  probe.setAttribute('aria-hidden', 'true')
+  probe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;width:var(--np-gap)'
+  el.appendChild(probe)
+  const g = probe.getBoundingClientRect().width
+  probe.remove()
+  return g || 32
+}
+
+const {
+  phase: coverPhase,
+  toggle: toggleCover,
+  stop: stopCoverFold,
+} = useFold({
+  axis: 'x',
+  edge: 'start',
+  root: () => coverCol.value,
+  label: () => '// COVER · INFO',
+  get: () => settings.detailCoverCollapsed,
+  set: (v) => (settings.detailCoverCollapsed = v),
+  layout(closing) {
+    const el = content.value
+    const body = coverCol.value?.querySelector<HTMLElement>('[data-fold-body]')
+    if (!el || !body) return null
+    const from = getComputedStyle(el).gridTemplateColumns.split(/\s+/).map(parseFloat)
+    if (from.some(Number.isNaN)) return null
+    const w = body.getBoundingClientRect().width
+    const gap = resolveGap(el, from)
+    if (from.length === 3) {
+      const [left, , mid] = from
+      const to = closing ? [0, 0, mid + gap + left] : [w, gap, mid - gap - w]
+      return { el, keyframes: [{ gridTemplateColumns: px(from) }, { gridTemplateColumns: px(to) }] }
+    }
+    if (from.length === 5) {
+      const [left, , mid, gap2, cmt] = from
+      const to = closing ? [0, 0, mid + gap + left, gap2, cmt] : [w, gap, mid - gap - w, gap2, cmt]
+      return { el, keyframes: [{ gridTemplateColumns: px(from) }, { gridTemplateColumns: px(to) }] }
+    }
+    return null
+  },
+})
 
 const {
   phase: cmtPhase,
@@ -67,17 +116,23 @@ const {
     const body = cmtCol.value?.querySelector<HTMLElement>('[data-fold-body]')
     if (!el || !body) return null
     // 栅格容器的计算值是各轨道的实际 px
-    const from = getComputedStyle(el).gridTemplateColumns.split(' ').map(parseFloat)
+    const from = getComputedStyle(el).gridTemplateColumns.split(/\s+/).map(parseFloat)
     if (from.length !== 5 || from.some(Number.isNaN)) return null
-    const [left, gap, mid, gap2, cmt] = from
+    const [left, g1, mid, g2, cmt] = from
+    const gap = resolveGap(el, from)
     const w = body.getBoundingClientRect().width
-    const to = closing ? [left, gap, mid + gap2 + cmt, 0, 0] : [left, gap, mid - gap - w, gap, w]
+    const to = closing
+      ? [left, g1, mid + (g2 > 1 ? g2 : gap) + cmt, 0, 0]
+      : [left, g1, mid - gap - w, gap, w]
     return { el, keyframes: [{ gridTemplateColumns: px(from) }, { gridTemplateColumns: px(to) }] }
   },
 })
 // 关闭详情页时 present 也会变假，那时离场中的 DOM 要靠折叠动画的 fill 撑住，不能停
 watch([wide, () => comments.present], ([w, has]) => {
   if ((!w || !has) && ui.detailOpen) stopCmtFold()
+})
+watch(mobile, (m) => {
+  if (m) stopCoverFold()
 })
 
 const { phase: lowerPhase, toggle: toggleLower } = useFold({
@@ -152,13 +207,12 @@ function goPage(i: number) {
   goView(i >= 2 ? 'cmt' : i === 1 ? 'lrc' : 'play')
 }
 
-/** 点 COMMENTS 统计：手机进评论层；宽屏展开评论栏；窄屏开抽屉 */
+/** 点 COMMENTS 统计：展开 / 再点收起 */
 function openComments() {
   if (!comments.present) return
-  if (mobile.value) goView('cmt')
-  else if (wide.value) {
-    if (settings.detailCmtCollapsed) toggleCmt()
-  } else ui.toggleComments(true)
+  if (mobile.value) goView(mView.value === 'cmt' ? 'play' : 'cmt')
+  else if (wide.value) toggleCmt()
+  else ui.toggleComments()
 }
 
 const progress = computed(() => (player.duration ? player.currentTime / player.duration : 0))
@@ -256,16 +310,39 @@ function parts(el: Element) {
     shell: q<HTMLElement>('.np-shell'),
     content: q<HTMLElement>('.np-content'),
     cover: q<HTMLElement>('.np-cover'),
+    info: q<HTMLElement>('[data-np-info]'),
     scan: q<HTMLElement>('.np-scan'),
     ghost: q<HTMLElement>('.np-ghost'),
+    metaGhost: q<HTMLElement>('.np-meta-ghost'),
   }
 }
 
-/** 播放栏收起时缩略图不可见；手机端不在封面态时大封面已变形，都不做飞行 */
-function thumbRect(): DOMRect | null {
+/** 左侧封面收起时，底部栏仍展示封面信息，不再做打开/关闭详情的飞行 */
+function coverPanelOpen() {
+  return mobile.value || !settings.detailCoverCollapsed
+}
+
+/** 底栏缩略图（visibility:hidden 时仍有几何，可供 FLIP 落点） */
+function barThumbRect(): DOMRect | null {
   if (mobile.value ? lrcP.value > 0.05 || cmtP.value > 0.05 : ui.barCollapsed) return null
   const r = document.querySelector('[data-np-thumb]')?.getBoundingClientRect()
   return r && r.width > 0 ? r : null
+}
+
+function barTextRect(): DOMRect | null {
+  if (mobile.value ? lrcP.value > 0.05 || cmtP.value > 0.05 : ui.barCollapsed) return null
+  const r = document.querySelector('[data-np-bar-text]')?.getBoundingClientRect()
+  return r && r.width > 0 ? r : null
+}
+
+/** 打开/关闭详情用的起飞点：左侧已收起则不从底栏飞 */
+function thumbRect(): DOMRect | null {
+  if (!coverPanelOpen() && ui.detailOpen) return null
+  return barThumbRect()
+}
+
+function npRoot() {
+  return document.querySelector('.np')
 }
 
 function placeGhost(ghost: HTMLElement, at: DOMRect) {
@@ -275,11 +352,21 @@ function placeGhost(ghost: HTMLElement, at: DOMRect) {
     width: `${at.width}px`,
     height: `${at.height}px`,
     visibility: 'visible',
+    opacity: '1',
   })
 }
 
-const flipFrom = (from: DOMRect, to: DOMRect) =>
-  `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width})`
+function clearGhost(ghost: HTMLElement) {
+  ghost.style.visibility = 'hidden'
+  ghost.style.opacity = ''
+  ghost.style.transform = ''
+}
+
+const flipFrom = (from: DOMRect, to: DOMRect) => {
+  const sx = from.width / Math.max(to.width, 1)
+  const sy = from.height / Math.max(to.height, 1)
+  return `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${sx}, ${sy})`
+}
 
 /** 每次 enter/leave 自增；迟到的回调发现代数已变就不再碰 ui 和共享元素 */
 let generation = 0
@@ -297,7 +384,8 @@ function onEnter(el: Element, done: () => void) {
     const start = Math.min(ui.detailPage, comments.present ? 2 : 1)
     resetMobileView(start >= 2 ? 'cmt' : start === 1 ? 'lrc' : 'play')
   }
-  ui.coverLifted = true
+  const flyMeta = coverPanelOpen()
+  ui.coverLifted = flyMeta
   if (reduceMotion) {
     void allDone([fade(p.shell, 0, 1, 'none')]).then(done)
     return
@@ -314,36 +402,63 @@ function onEnter(el: Element, done: () => void) {
       { duration: 520, easing: EASE_OUT },
     ),
   ]
-  const to = p.cover.getBoundingClientRect()
-  const from = thumbRect()
-  if (from) {
-    placeGhost(p.ghost, to)
-    p.cover.style.opacity = '0'
-    const fly = p.ghost.animate([{ transform: flipFrom(from, to) }, { transform: 'none' }], {
-      duration: 620,
-      easing: FLY_OUT,
-    })
-    anims.push(fly)
-    void fly.finished
-      .then(async () => {
-        if (gen !== generation) return
-        const img = p.cover.querySelector('img')
-        await Promise.race([img?.decode().catch(() => undefined), sleep(LAND_WAIT)])
-        if (gen !== generation) return
-        p.cover.style.opacity = ''
-        await p.ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180 }).finished
-        if (gen !== generation) return
-        p.ghost.style.visibility = 'hidden'
-      })
-      .catch(() => undefined)
-  } else {
-    anims.push(
-      p.cover.animate([{ opacity: 0, transform: 'scale(0.6)' }, { opacity: 1, transform: 'none' }], {
-        duration: 420,
-        easing: EASE_OUT,
-      }),
-    )
+
+  const landCover = async (fly: Animation) => {
+    await fly.finished.catch(() => undefined)
+    if (gen !== generation) return
+    const img = p.cover.querySelector('img')
+    await Promise.race([img?.decode().catch(() => undefined), sleep(LAND_WAIT)])
+    if (gen !== generation) return
+    p.cover.style.opacity = ''
+    await p.ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180 }).finished.catch(() => undefined)
+    if (gen !== generation) return
+    clearGhost(p.ghost)
   }
+
+  const landMeta = async (fly: Animation) => {
+    await fly.finished.catch(() => undefined)
+    if (gen !== generation || !p.info || !p.metaGhost) return
+    p.info.style.opacity = ''
+    await p.metaGhost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160 }).finished.catch(() => undefined)
+    if (gen !== generation) return
+    clearGhost(p.metaGhost)
+  }
+
+  if (flyMeta) {
+    const coverTo = p.cover.getBoundingClientRect()
+    const coverFrom = thumbRect()
+    if (coverFrom && coverTo.width > 0) {
+      placeGhost(p.ghost, coverTo)
+      p.cover.style.opacity = '0'
+      const fly = p.ghost.animate([{ transform: flipFrom(coverFrom, coverTo) }, { transform: 'none' }], {
+        duration: 620,
+        easing: FLY_OUT,
+      })
+      anims.push(fly)
+      void landCover(fly)
+    } else {
+      anims.push(
+        p.cover.animate([{ opacity: 0, transform: 'scale(0.6)' }, { opacity: 1, transform: 'none' }], {
+          duration: 420,
+          easing: EASE_OUT,
+        }),
+      )
+    }
+
+    const infoTo = p.info?.getBoundingClientRect()
+    const textFrom = barTextRect()
+    if (p.info && p.metaGhost && infoTo && textFrom && infoTo.width > 0) {
+      placeGhost(p.metaGhost, infoTo)
+      p.info.style.opacity = '0'
+      const fly = p.metaGhost.animate([{ transform: flipFrom(textFrom, infoTo) }, { transform: 'none' }], {
+        duration: 580,
+        easing: FLY_OUT,
+      })
+      anims.push(fly)
+      void landMeta(fly)
+    }
+  }
+
   void allDone(anims).then(done)
 }
 
@@ -352,11 +467,16 @@ function onLeave(el: Element, done: () => void) {
   const p = parts(el)
   // 打开飞行中途关闭：从替身当前位置起飞，取消动画前先量
   const ghostAt = getComputedStyle(p.ghost).visibility === 'visible' ? p.ghost.getBoundingClientRect() : null
+  const metaAt =
+    p.metaGhost && getComputedStyle(p.metaGhost).visibility === 'visible'
+      ? p.metaGhost.getBoundingClientRect()
+      : null
   // 打开的 WAAPI 动画会与关闭动画抢同一属性；CSS 入场动画保留，否则未显现的块会闪现
   el.getAnimations({ subtree: true }).forEach((a) => {
     if (!(a instanceof CSSAnimation) && !(a instanceof CSSTransition) && a.id !== FOLD_ANIM) a.cancel()
   })
-  p.ghost.style.visibility = 'hidden'
+  clearGhost(p.ghost)
+  if (p.metaGhost) clearGhost(p.metaGhost)
   const finish = () => {
     if (gen === generation) ui.coverLifted = false
     done()
@@ -365,8 +485,11 @@ function onLeave(el: Element, done: () => void) {
     void allDone([fade(p.shell, 1, 0, 'forwards')]).then(finish)
     return
   }
-  const to = thumbRect()
-  const at = ghostAt ?? p.cover.getBoundingClientRect()
+  // 关闭前 detailOpen 已变 false；若左侧仍是展开态，封面/文字飞回底栏
+  const flyBack = !settings.detailCoverCollapsed || mobile.value
+  const thumbTo = flyBack ? thumbRect() : null
+  const textTo = flyBack ? barTextRect() : null
+  const coverAt = ghostAt ?? p.cover.getBoundingClientRect()
   const anims: Animation[] = [
     p.content.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: EASE_IN, fill: 'forwards' }),
     p.shell.animate([{ clipPath: 'inset(0)' }, { clipPath: 'inset(100% 0 0 0)' }], {
@@ -376,18 +499,18 @@ function onLeave(el: Element, done: () => void) {
       fill: 'forwards',
     }),
   ]
-  if (to) {
-    placeGhost(p.ghost, at)
+  if (thumbTo && coverAt.width > 0) {
+    placeGhost(p.ghost, coverAt)
     p.cover.style.opacity = '0'
     anims.push(
-      p.ghost.animate([{ transform: 'none' }, { transform: flipFrom(to, at) }], {
+      p.ghost.animate([{ transform: 'none' }, { transform: flipFrom(thumbTo, coverAt) }], {
         duration: 340,
         delay: 80,
         easing: FLY_BACK,
         fill: 'forwards',
       }),
     )
-  } else {
+  } else if (flyBack) {
     anims.push(
       p.cover.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(0.6)' }], {
         duration: 300,
@@ -396,8 +519,139 @@ function onLeave(el: Element, done: () => void) {
       }),
     )
   }
+  const infoAt = metaAt ?? p.info?.getBoundingClientRect()
+  if (p.metaGhost && textTo && infoAt && infoAt.width > 0) {
+    placeGhost(p.metaGhost, infoAt)
+    if (p.info) p.info.style.opacity = '0'
+    anims.push(
+      p.metaGhost.animate([{ transform: 'none' }, { transform: flipFrom(textTo, infoAt) }], {
+        duration: 320,
+        delay: 60,
+        easing: FLY_BACK,
+        fill: 'forwards',
+      }),
+    )
+  }
   void allDone(anims).then(finish)
 }
+
+const FOLD_FLY = 520
+
+/** 收起左侧：封面/歌名替身飞入底栏，落位后再显示底栏信息 */
+async function flyCoverToBar() {
+  const root = npRoot()
+  if (!root || mobile.value || !ui.detailOpen) {
+    ui.coverLifted = false
+    return
+  }
+  const gen = ++generation
+  const p = parts(root)
+  ui.coverLifted = true
+  if (reduceMotion) {
+    ui.coverLifted = false
+    return
+  }
+  const coverAt = p.cover.getBoundingClientRect()
+  const infoAt = p.info?.getBoundingClientRect()
+  await nextTick()
+  if (gen !== generation) return
+  const thumbTo = barThumbRect()
+  const textTo = barTextRect()
+  const anims: Animation[] = []
+
+  if (thumbTo && coverAt.width > 0) {
+    placeGhost(p.ghost, coverAt)
+    p.cover.style.opacity = '0'
+    anims.push(
+      p.ghost.animate([{ transform: 'none' }, { transform: flipFrom(thumbTo, coverAt) }], {
+        duration: FOLD_FLY,
+        easing: FLY_BACK,
+        fill: 'forwards',
+      }),
+    )
+  }
+  if (p.metaGhost && p.info && textTo && infoAt && infoAt.width > 0) {
+    placeGhost(p.metaGhost, infoAt)
+    p.info.style.opacity = '0'
+    anims.push(
+      p.metaGhost.animate([{ transform: 'none' }, { transform: flipFrom(textTo, infoAt) }], {
+        duration: FOLD_FLY - 40,
+        easing: FLY_BACK,
+        fill: 'forwards',
+      }),
+    )
+  }
+  await allDone(anims)
+  if (gen !== generation) return
+  clearGhost(p.ghost)
+  if (p.metaGhost) clearGhost(p.metaGhost)
+  p.cover.style.opacity = ''
+  if (p.info) p.info.style.opacity = ''
+  ui.coverLifted = false
+}
+
+/** 展开左侧：底栏封面/歌名飞回详情位 */
+async function flyBarToCover() {
+  const root = npRoot()
+  if (!root || mobile.value || !ui.detailOpen) {
+    ui.coverLifted = true
+    return
+  }
+  const gen = ++generation
+  const p = parts(root)
+  // 先量底栏（仍可见），再拎走
+  const thumbFrom = barThumbRect()
+  const textFrom = barTextRect()
+  ui.coverLifted = true
+  if (reduceMotion) return
+  await nextTick()
+  if (gen !== generation) return
+  const coverTo = p.cover.getBoundingClientRect()
+  const infoTo = p.info?.getBoundingClientRect()
+  const anims: Animation[] = []
+
+  if (thumbFrom && coverTo.width > 0) {
+    placeGhost(p.ghost, coverTo)
+    p.cover.style.opacity = '0'
+    anims.push(
+      p.ghost.animate([{ transform: flipFrom(thumbFrom, coverTo) }, { transform: 'none' }], {
+        duration: FOLD_FLY,
+        easing: FLY_OUT,
+      }),
+    )
+  }
+  if (p.metaGhost && p.info && textFrom && infoTo && infoTo.width > 0) {
+    placeGhost(p.metaGhost, infoTo)
+    p.info.style.opacity = '0'
+    anims.push(
+      p.metaGhost.animate([{ transform: flipFrom(textFrom, infoTo) }, { transform: 'none' }], {
+        duration: FOLD_FLY - 40,
+        easing: FLY_OUT,
+      }),
+    )
+  }
+  await allDone(anims)
+  if (gen !== generation) return
+  p.cover.style.opacity = ''
+  if (p.info) p.info.style.opacity = ''
+  await Promise.all([
+    p.ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160 }).finished.catch(() => undefined),
+    p.metaGhost
+      ? p.metaGhost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140 }).finished.catch(() => undefined)
+      : Promise.resolve(),
+  ])
+  if (gen !== generation) return
+  clearGhost(p.ghost)
+  if (p.metaGhost) clearGhost(p.metaGhost)
+}
+
+watch(coverPhase, (phase) => {
+  if (!ui.detailOpen || mobile.value) return
+  if (phase === 'closing') void flyCoverToBar()
+  else if (phase === 'opening') void flyBarToCover()
+  else if (phase === 'closed' && reduceMotion) ui.coverLifted = false
+  else if (phase === 'open' && reduceMotion) ui.coverLifted = true
+})
 </script>
 
 <template>
@@ -422,10 +676,17 @@ function onLeave(el: Element, done: () => void) {
         <div
           ref="content"
           class="np-content"
-          :class="{ 'np-m': mobile, 'np-3': wide && comments.present, 'np-cmt-off': cmtPhase === 'closed' }"
+          :class="{
+            'np-m': mobile,
+            'np-3': wide && comments.present,
+            'np-cmt-off': cmtPhase === 'closed',
+            'np-cover-off': coverPhase === 'closed',
+          }"
         >
           <header class="np-head np-in" style="--i: 0">
-            <button type="button" class="txt-btn" title="关闭（Esc）" @click="ui.toggleDetail(false)">[CLOSE]</button>
+            <button type="button" class="txt-btn np-close" title="关闭（Esc）" @click="ui.toggleDetail(false)">
+              [<PixelIcon name="close" :scale="2" class="np-close-x" /> CLOSE]
+            </button>
             <nav v-if="mobile" class="np-dots" :style="{ '--p': pos, '--n': tabs.length }" aria-label="详情视图">
               <button
                 v-for="(tab, i) in tabs"
@@ -515,12 +776,13 @@ function onLeave(el: Element, done: () => void) {
                     :seg="4"
                     :gap="2"
                     :height="6"
+                    smooth="seek"
                     @change="(v) => player.seek(v * player.duration)"
                   />
                   <span>{{ fmtTime(player.duration) }}</span>
                 </div>
                 <div class="np-ctrl np-in" style="--i: 5">
-                  <button type="button" class="txt-btn" :title="MODE_TITLE[player.mode]" @click="player.cycleMode()">
+                  <button type="button" class="txt-btn" :title="t(MODE_TITLE_KEY[player.mode])" @click="player.cycleMode()">
                     [{{ MODE_LABEL[player.mode] }}]
                   </button>
                   <button type="button" class="np-icon" aria-label="上一首" @click="player.prev()">
@@ -564,16 +826,54 @@ function onLeave(el: Element, done: () => void) {
           </div>
 
           <template v-else>
-            <div class="np-left" :inert="drawerOpen">
-              <div class="np-cover">
-                <VinylCover
-                  :sources="coverSources(player.current.cover, 'large')"
-                  :playing="player.isPlaying"
-                  :analyser="player.analyser"
-                />
-                <i class="np-corners" aria-hidden="true" />
+            <div
+              ref="coverCol"
+              class="np-cover-col"
+              :class="{ off: coverPhase !== 'open', closed: coverPhase === 'closed' }"
+              :inert="drawerOpen"
+            >
+              <div id="np-cover" class="np-cover-clip" data-fold-body :inert="coverPhase !== 'open'">
+                <div class="np-left">
+                  <div class="np-cover">
+                    <VinylCover
+                      :sources="coverSources(player.current.cover, 'large')"
+                      :playing="player.isPlaying"
+                      :analyser="player.analyser"
+                    />
+                    <i class="np-corners" aria-hidden="true" />
+                  </div>
+                  <DetailInfo :track="player.current" @open-comments="openComments" />
+                </div>
+                <button
+                  type="button"
+                  class="txt-btn np-fold-btn"
+                  data-fold-toggle
+                  aria-expanded="true"
+                  aria-controls="np-cover"
+                  aria-label="收起封面与歌曲信息"
+                  title="收起封面与歌曲信息"
+                  @click="toggleCover"
+                >
+                  [-]
+                </button>
               </div>
-              <DetailInfo :track="player.current" @open-comments="openComments" />
+              <button
+                type="button"
+                class="np-rail np-rail-start np-in"
+                style="--i: 1"
+                data-fold-dock
+                :inert="coverPhase !== 'closed'"
+                aria-expanded="false"
+                aria-controls="np-cover"
+                aria-label="展开封面与歌曲信息"
+                title="展开封面与歌曲信息"
+                @click="toggleCover"
+              >
+                <span class="np-dock-hint">[+]</span>
+                <span class="np-rail-text np-rail-tag">// COVER</span>
+              </button>
+              <i class="np-fold-box" aria-hidden="true"><b class="np-label np-fold-tag" /></i>
+              <i class="np-fold-line" aria-hidden="true" />
             </div>
             <div class="np-right" :inert="drawerOpen">
               <DetailLyrics />
@@ -685,6 +985,10 @@ function onLeave(el: Element, done: () => void) {
         />
         <CoverFallback v-else class="np-ghost-fb" />
       </div>
+      <div class="np-meta-ghost" aria-hidden="true">
+        <span class="np-meta-ghost-title">{{ player.current.title }}</span>
+        <span class="np-meta-ghost-artist">{{ player.current.artist }}</span>
+      </div>
     </div>
   </Transition>
 </template>
@@ -726,16 +1030,22 @@ function onLeave(el: Element, done: () => void) {
 .np-content {
   --np-pad-x: clamp(24px, 5vw, 72px);
   --np-gap: clamp(32px, 5vw, 80px);
+  --left-w: min(44vh, 40vw);
   --cmt-w: clamp(300px, 22vw, 380px);
   position: relative;
   box-sizing: border-box;
   height: 100%;
   display: grid;
-  grid-template-columns: min(44vh, 40vw) minmax(0, 1fr);
+  /* 左栏 / 间距 / 歌词：间距写成轨道，折叠时可和栏宽一起收到 0 */
+  grid-template-columns: var(--left-w) var(--np-gap) minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
-  column-gap: var(--np-gap);
+  column-gap: 0;
   row-gap: 24px;
   padding: 28px var(--np-pad-x) 32px;
+}
+
+.np-content.np-cover-off {
+  grid-template-columns: 0px 0px minmax(0, 1fr);
 }
 
 .np-head {
@@ -748,6 +1058,35 @@ function onLeave(el: Element, done: () => void) {
   gap: 16px;
 }
 
+.np-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.np-close-x {
+  transition: transform 460ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.np-close:hover .np-close-x {
+  transform: rotate(360deg);
+}
+
+.np-close:active .np-close-x {
+  transform: rotate(400deg) scale(0.9);
+  transition-duration: 140ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .np-close-x {
+    transition: none;
+  }
+  .np-close:hover .np-close-x,
+  .np-close:active .np-close-x {
+    transform: none;
+  }
+}
+
 .np-cmt-btn {
   margin-left: auto;
 }
@@ -758,8 +1097,25 @@ function onLeave(el: Element, done: () => void) {
   color: var(--text-dim);
 }
 
+.np-cover-col {
+  grid-area: 2 / 1;
+  position: relative;
+  min-height: 0;
+}
+
+.np-cover-clip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  width: var(--left-w);
+}
+
 .np-left {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 24px;
   min-height: 0;
@@ -797,6 +1153,7 @@ function onLeave(el: Element, done: () => void) {
 }
 
 .np-right {
+  grid-area: 2 / 3;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   gap: 24px;
@@ -811,20 +1168,19 @@ function onLeave(el: Element, done: () => void) {
 
 /* 栏间距写成轨道：折叠时“间隔 + 评论”两条轨道一起过渡到 0，歌词右缘回到两栏布局的位置 */
 .np-content.np-3 {
-  column-gap: 0;
-  grid-template-columns: min(44vh, 40vw) var(--np-gap) minmax(0, 1fr) var(--np-gap) var(--cmt-w);
+  grid-template-columns: var(--left-w) var(--np-gap) minmax(0, 1fr) var(--np-gap) var(--cmt-w);
 }
 
 .np-content.np-3.np-cmt-off {
-  grid-template-columns: min(44vh, 40vw) var(--np-gap) minmax(0, 1fr) 0px 0px;
+  grid-template-columns: var(--left-w) var(--np-gap) minmax(0, 1fr) 0px 0px;
 }
 
-.np-3 > .np-left {
-  grid-area: 2 / 1;
+.np-content.np-3.np-cover-off {
+  grid-template-columns: 0px 0px minmax(0, 1fr) var(--np-gap) var(--cmt-w);
 }
 
-.np-3 > .np-right {
-  grid-area: 2 / 3;
+.np-content.np-3.np-cover-off.np-cmt-off {
+  grid-template-columns: 0px 0px minmax(0, 1fr) 0px 0px;
 }
 
 .np-cmt-col {
@@ -848,8 +1204,10 @@ function onLeave(el: Element, done: () => void) {
   flex: 1;
 }
 
+.np-cover-col.closed .np-cover-clip,
 .np-cmt-col.closed .np-cmt-clip,
 .np-lower-wrap.closed .np-lower-clip,
+.np-cover-col:not(.off) .np-rail,
 .np-cmt-col:not(.off) .np-rail,
 .np-lower-wrap:not(.off) .np-strip {
   visibility: hidden;
@@ -918,6 +1276,13 @@ function onLeave(el: Element, done: () => void) {
   border-left: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
 }
 
+.np-rail-start {
+  right: auto;
+  left: calc(12px - var(--np-pad-x));
+  border-left: 0;
+  border-right: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
 .np-rail-text {
   writing-mode: vertical-rl;
   letter-spacing: 0.12em;
@@ -979,12 +1344,19 @@ function onLeave(el: Element, done: () => void) {
     0 0 2px var(--accent);
 }
 
+.np-cover-col .np-fold-box {
+  top: 0;
+  left: 0;
+  bottom: 0;
+}
+
 .np-cmt-col .np-fold-box {
   top: 0;
   right: 0;
   bottom: 0;
 }
 
+.np-cover-col .np-fold-line,
 .np-cmt-col .np-fold-line {
   top: 0;
   bottom: 0;
@@ -1107,6 +1479,48 @@ function onLeave(el: Element, done: () => void) {
     var(--bg-2);
 }
 
+.np-meta-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 58;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform-origin: 0 0;
+  overflow: hidden;
+}
+
+.np-meta-ghost-title {
+  font-family: var(--font-pixel-mix);
+  font-size: clamp(24px, 3vw, 36px);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  image-rendering: pixelated;
+}
+
+.np-meta-ghost-artist {
+  font-family: var(--font-pixel-mix);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 16px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  image-rendering: pixelated;
+}
+
 @media (max-width: 900px) {
   .np-content {
     display: flex;
@@ -1116,6 +1530,23 @@ function onLeave(el: Element, done: () => void) {
   }
   .np-content > * {
     flex: none;
+  }
+  .np-cover-col,
+  .np-right {
+    grid-area: auto;
+  }
+  .np-cover-clip {
+    position: relative;
+    width: auto;
+  }
+  .np-cover-col.closed .np-cover-clip {
+    visibility: visible;
+  }
+  .np-cover-col .np-fold-btn,
+  .np-cover-col .np-rail,
+  .np-cover-col .np-fold-box,
+  .np-cover-col .np-fold-line {
+    display: none;
   }
   .np-left {
     overflow: visible;

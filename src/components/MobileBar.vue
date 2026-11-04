@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { usePlayerStore } from '../stores/player'
 import { useUiStore } from '../stores/ui'
 import { coverSources } from '../utils/cover'
@@ -15,8 +15,24 @@ const SKIP = 72
 const OPEN = 40
 const DAMP = 0.6
 const SLOP = 8
+const SEEK_JUMP = 0.008
 
 const progress = computed(() => (store.duration ? store.currentTime / store.duration : 0))
+const progressJump = ref(false)
+let lastProgress = progress.value
+let progressTimer = 0
+watch(progress, (v) => {
+  const prev = lastProgress
+  lastProgress = v
+  if (Math.abs(v - prev) < SEEK_JUMP) return
+  progressJump.value = true
+  window.clearTimeout(progressTimer)
+  progressTimer = window.setTimeout(() => {
+    progressJump.value = false
+  }, 420)
+})
+onBeforeUnmount(() => window.clearTimeout(progressTimer))
+
 const dx = ref(0)
 const dragging = ref(false)
 const enterFrom = ref<'left' | 'right' | null>(null)
@@ -97,7 +113,12 @@ const textStyle = computed(() =>
     @pointerup="onUp"
     @pointercancel="onCancel"
   >
-    <i class="mb-progress" :style="{ transform: `scaleX(${progress})` }" aria-hidden="true" />
+    <i
+      class="mb-progress"
+      :class="{ jump: progressJump }"
+      :style="{ transform: `scaleX(${progress})` }"
+      aria-hidden="true"
+    />
     <button type="button" class="mb-track" title="歌曲详情" :aria-expanded="ui.detailOpen" @click="onTrackClick">
       <span class="mb-thumb" :class="{ lifted: ui.coverLifted }" data-np-thumb>
         <CoverImage :sources="coverSources(store.current.cover, 'small')" />
@@ -105,7 +126,8 @@ const textStyle = computed(() =>
       <span
         :key="store.current.id"
         class="mb-text"
-        :class="[enterFrom && `in-${enterFrom}`, { dragging }]"
+        data-np-bar-text
+        :class="[enterFrom && `in-${enterFrom}`, { dragging, lifted: ui.coverLifted }]"
         :style="textStyle"
         @animationend="enterFrom = null"
       >
@@ -165,6 +187,16 @@ const textStyle = computed(() =>
   pointer-events: none;
 }
 
+.mb-progress.jump {
+  transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mb-progress.jump {
+    transition: none;
+  }
+}
+
 .mb-track {
   display: flex;
   align-items: center;
@@ -189,6 +221,10 @@ const textStyle = computed(() =>
 }
 
 .mb-thumb.lifted {
+  visibility: hidden;
+}
+
+.mb-text.lifted {
   visibility: hidden;
 }
 

@@ -1,36 +1,33 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Track } from '../api/types'
+import { useI18n } from '../i18n'
+import { useSettingsStore } from '../stores/settings'
 import { coverSources } from '../utils/cover'
+import { tileDepthForId, tileSizeForId } from '../utils/tileSize'
 import CoverImage from './CoverImage.vue'
 
-const props = defineProps<{
-  track: Track
-  index: number
-  current: boolean
-  playing: boolean
-}>()
+const { t } = useI18n()
+const settings = useSettingsStore()
+
+const props = withDefaults(
+  defineProps<{
+    track: Track
+    index: number
+    current: boolean
+    playing: boolean
+    /** 键盘选中高亮 */
+    selected?: boolean
+    /** 画布模式：禁用 CSS hover 缩放（由画布做放大让路），尺寸仍错落 */
+    uniform?: boolean
+  }>(),
+  { uniform: false, selected: false },
+)
 
 defineEmits<{ select: [] }>()
 
-type TileSize = 's' | 'w' | 't' | 'm' | 'l'
-
-/** 出现频率即权重 */
-const SIZES: TileSize[] = ['s', 's', 's', 's', 's', 'w', 'w', 't', 't', 'm', 'm', 'l']
-const BASE_DEPTH: Record<TileSize, number> = { s: 0.3, w: 0.55, t: 0.55, m: 0.8, l: 1.05 }
-
-function hash(str: string): number {
-  let h = 2166136261
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return h >>> 0
-}
-
-const seed = computed(() => hash(props.track.id))
-const size = computed(() => SIZES[seed.value % SIZES.length])
-const depth = computed(() => BASE_DEPTH[size.value] + ((seed.value >>> 8) % 100) / 400)
+const size = computed(() => tileSizeForId(props.track.id))
+const depth = computed(() => tileDepthForId(props.track.id))
 const sources = computed(() =>
   coverSources(props.track.cover, size.value === 'm' || size.value === 'l' ? 'large' : 'medium'),
 )
@@ -40,14 +37,17 @@ const sources = computed(() =>
   <button
     type="button"
     class="tile"
-    :class="[`is-${size}`, { 'is-current': current }]"
+    :class="[
+      `is-${size}`,
+      { 'is-current': current, 'is-uniform': uniform, 'is-selected': selected, 'show-info': settings.coverInfoAlways },
+    ]"
     :style="{
       '--depth': depth.toFixed(3),
       '--delay': `${(index % 40) * 22}ms`,
       zIndex: Math.round(depth * 10),
     }"
     :data-track-id="track.id"
-    :aria-label="`播放 ${track.title} - ${track.artist}`"
+    :aria-label="t('tile.play', { title: track.title, artist: track.artist })"
     @click="$emit('select')"
   >
     <div class="tile-inner">
@@ -166,13 +166,23 @@ const sources = computed(() =>
 }
 
 .tile:hover,
-.tile:focus-visible {
+.tile:focus-visible,
+.tile.is-selected {
   z-index: 40;
   transform: scale(1.07);
 }
 
+/* 画布模式由 CoverCanvas 做放大+让路，避免和外层 transform 叠乘 */
+.tile.is-uniform:hover,
+.tile.is-uniform:focus-visible,
+.tile.is-uniform.is-selected {
+  z-index: auto;
+  transform: none;
+}
+
 .tile:hover .tile-inner,
-.tile:focus-visible .tile-inner {
+.tile:focus-visible .tile-inner,
+.tile.is-selected .tile-inner {
   filter: brightness(1.14) saturate(1.1);
   box-shadow:
     0 14px 32px rgba(0, 0, 0, 0.55),
@@ -180,8 +190,16 @@ const sources = computed(() =>
     0 0 22px color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
+.tile.is-uniform:hover .tile-inner,
+.tile.is-uniform:focus-visible .tile-inner,
+.tile.is-uniform.is-selected .tile-inner {
+  filter: none;
+  box-shadow: none;
+}
+
 .tile:hover .frame,
-.tile:focus-visible .frame {
+.tile:focus-visible .frame,
+.tile.is-selected .frame {
   --l: 22px;
   --w: 3px;
   box-shadow:
@@ -256,31 +274,42 @@ const sources = computed(() =>
 }
 
 .tile:hover .meta,
-.tile:focus-visible .meta {
+.tile:focus-visible .meta,
+.tile.is-selected .meta,
+.tile.show-info .meta {
   transform: none;
 }
 
 .tile:hover .shade,
-.tile:focus-visible .shade {
+.tile:focus-visible .shade,
+.tile.is-selected .shade,
+.tile.show-info .shade {
   opacity: 0;
 }
 
 .meta-title {
-  font-size: 13px;
-  font-weight: 600;
+  font-family: var(--font-pixel-mix);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 16px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  image-rendering: pixelated;
 }
 
 .meta-artist {
-  font-family: var(--font-mono);
-  font-size: 15px;
-  line-height: 1;
+  font-family: var(--font-pixel-mix);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 16px;
   color: var(--text-dim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  image-rendering: pixelated;
 }
 
 .badge {
@@ -371,21 +400,27 @@ const sources = computed(() =>
     min-width: 0;
   }
   .cap-title {
-    font-size: 13px;
-    font-weight: 600;
-    line-height: 1.25;
+    font-family: var(--font-pixel-mix);
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    line-height: 16px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    image-rendering: pixelated;
   }
   .cap-artist {
-    font-family: var(--font-mono);
-    font-size: 14px;
-    line-height: 1;
+    font-family: var(--font-pixel-mix);
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    line-height: 16px;
     color: var(--text-dim);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    image-rendering: pixelated;
   }
   .is-current .cap-title {
     color: var(--accent);
@@ -407,7 +442,7 @@ const sources = computed(() =>
     background-size: 0 0;
     box-shadow: inset 0 0 0 1px var(--line);
   }
-  .tile:hover .meta {
+  .tile:hover:not(.show-info):not(.is-selected) .meta {
     transform: translateY(100%);
   }
 }

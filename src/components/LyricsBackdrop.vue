@@ -3,9 +3,11 @@ import { computed } from 'vue'
 import type { LyricWord } from '../api/types'
 import { useLyricsStore } from '../stores/lyrics'
 import { usePlayerStore } from '../stores/player'
+import { useSettingsStore } from '../stores/settings'
 
 const player = usePlayerStore()
 const lyrics = useLyricsStore()
+const settings = useSettingsStore()
 
 /** 逐字填充按 1/8 量化，和歌词面板保持一致的像素扫描感 */
 const WORD_STEPS = 8
@@ -28,7 +30,7 @@ function wordProgress(w: LyricWord): number {
 </script>
 
 <template>
-  <div class="backdrop" aria-hidden="true">
+  <div class="backdrop" :class="{ 'is-pixel': settings.pixelLyrics }" aria-hidden="true">
     <span class="bd-tag">// AMBIENT · {{ player.current?.title }}</span>
     <Transition name="glitch" mode="out-in">
       <div v-if="line" :key="lyrics.activeLine" class="bd-stack">
@@ -141,6 +143,31 @@ function wordProgress(w: LyricWord): number {
 .bd-counter {
   right: 40px;
   bottom: 20px;
+}
+
+.backdrop.is-pixel .bd-line {
+  font-family: var(--font-pixel-mix);
+  font-size: clamp(36px, 6vw, 72px);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  image-rendering: pixelated;
+  /* 像素字本身已有块面感，关掉扫描线遮罩以免糊边 */
+  mask-image: none;
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--accent) 35%, transparent));
+}
+
+.backdrop.is-pixel .bd-trans,
+.backdrop.is-pixel .bd-side {
+  font-family: var(--font-pixel-mix);
+  font-size: clamp(12px, 1.8vw, 24px);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+.backdrop.is-pixel .bd-tag,
+.backdrop.is-pixel .bd-counter {
+  font-family: var(--font-pixel-mix);
+  font-size: 12px;
 }
 
 /*

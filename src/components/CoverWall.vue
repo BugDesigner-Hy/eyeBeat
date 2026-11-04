@@ -1,16 +1,35 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
+import { useMobile } from '../composables/useMobile'
+import { useI18n } from '../i18n'
+import { useAccountStore } from '../stores/account'
 import { usePlayerStore } from '../stores/player'
 import { useSettingsStore } from '../stores/settings'
+import { useUiStore } from '../stores/ui'
+import { dirFromKey, pickNeighbor } from '../utils/spatialNav'
+import CoverCanvas from './CoverCanvas.vue'
 import CoverTile from './CoverTile.vue'
-import { useMobile } from '../composables/useMobile'
+import NeonTitle from './NeonTitle.vue'
 
 const store = usePlayerStore()
 const settings = useSettingsStore()
+const ui = useUiStore()
+const account = useAccountStore()
+const { t } = useI18n()
 const mobile = useMobile()
 const wall = ref<HTMLElement>()
 const grid = ref<HTMLElement>()
 const sentinel = ref<HTMLElement>()
+
+/** 键盘选中的曲目 id（瀑布流） */
+const kbTrackId = ref<string | null>(null)
+
+/** 桌面画布模式；手机始终瀑布 */
+const useCanvas = computed(() => !mobile.value && settings.wallLayout === 'canvas')
+
+watchEffect(() => {
+  document.documentElement.classList.toggle('wall-canvas', useCanvas.value)
+})
 
 const EASE = 0.08
 /** 远离焦点的封面最多缩小 / 变淡到的比例（偏亮，避免整墙发闷） */
@@ -62,7 +81,7 @@ function measure() {
 }
 
 function schedule() {
-  if (mobile.value) return
+  if (mobile.value || useCanvas.value) return
   if (!raf) raf = requestAnimationFrame(frame)
 }
 
@@ -157,19 +176,32 @@ watch(
 /** 手机上没有视差（窄屏布局下封面会互相错位） */
 watch(mobile, (m) => (m ? clearTiles() : schedule()))
 
+watch(useCanvas, async (c) => {
+  if (c) {
+    clearTiles()
+    return
+  }
+  await nextTick()
+  if (grid.value) ro?.observe(grid.value)
+  if (sentinel.value) io?.observe(sentinel.value)
+  measure()
+  schedule()
+})
+
 onMounted(() => {
   if (!reduceMotion) {
     window.addEventListener('pointermove', onPointerMove, { passive: true })
     document.documentElement.addEventListener('pointerleave', onPointerLeave)
     window.addEventListener('scroll', schedule, { passive: true })
   }
+  window.addEventListener('keydown', onWallKeydown)
   ro = new ResizeObserver(measure)
   if (grid.value) ro.observe(grid.value)
 
   io = new IntersectionObserver(
     ([entry]) => {
       sentinelVisible = entry.isIntersecting
-      if (sentinelVisible && store.tracks.length) store.loadList()
+      if (sentinelVisible && store.tracks.length && !useCanvas.value) store.loadList()
     },
     { rootMargin: '800px 0px' },
   )
@@ -177,10 +209,75 @@ onMounted(() => {
   if (!store.tracks.length) store.loadList(true)
 })
 
+function wallKeysBlocked() {
+  if (useCanvas.value) return true
+  if (ui.poweredOff || ui.paletteOpen || ui.detailOpen || ui.fxOpen || ui.menuOpen || account.loginOpen) return true
+  return false
+}
+
+function collectWallPoints() {
+  const root = grid.value
+  if (!root) return [] as { id: string; x: number; y: number; el: HTMLElement }[]
+  return [...root.querySelectorAll<HTMLElement>('.tile[data-track-id]')].map((el) => {
+    const r = el.getBoundingClientRect()
+    return {
+      id: el.getAttribute('data-track-id')!,
+      x: r.left + r.width / 2,
+      y: r.top + r.height / 2,
+      el,
+    }
+  })
+}
+
+function selectWallTrack(id: string | null) {
+  kbTrackId.value = id
+  if (!id) return
+  nextTick(() => {
+    const el = grid.value?.querySelector<HTMLElement>(`.tile[data-track-id="${CSS.escape(id)}"]`)
+    el?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' })
+  })
+}
+
+function onWallKeydown(e: KeyboardEvent) {
+  if (wallKeysBlocked()) return
+  const t = e.target as HTMLElement | null
+  if (t?.closest?.('input, textarea, select, [contenteditable], [role="slider"]')) return
+
+  const dir = dirFromKey(e.key)
+  if (dir) {
+    e.preventDefault()
+    const points = collectWallPoints()
+    if (!points.length) return
+    let from = kbTrackId.value
+    if (!from || !points.some((p) => p.id === from)) {
+      from = store.current?.id && points.some((p) => p.id === store.current!.id) ? store.current.id : null
+    }
+    const next = pickNeighbor(points, from, dir)
+    if (next) selectWallTrack(next)
+    return
+  }
+
+  if (e.key === 'Enter') {
+    if (!kbTrackId.value) return
+    e.preventDefault()
+    const track = store.tracks.find((tr) => tr.id === kbTrackId.value)
+    if (track) store.playFromList(track)
+  }
+}
+
+watch(
+  () => store.tracks.map((tr) => tr.id).join(),
+  () => {
+    if (kbTrackId.value && !store.tracks.some((tr) => tr.id === kbTrackId.value)) kbTrackId.value = null
+  },
+)
+
 onBeforeUnmount(() => {
+  document.documentElement.classList.remove('wall-canvas')
   window.removeEventListener('pointermove', onPointerMove)
   document.documentElement.removeEventListener('pointerleave', onPointerLeave)
   window.removeEventListener('scroll', schedule)
+  window.removeEventListener('keydown', onWallKeydown)
   cancelAnimationFrame(raf)
   io?.disconnect()
   ro?.disconnect()
@@ -191,13 +288,18 @@ onBeforeUnmount(() => {
   <section
     ref="wall"
     class="wall"
-    :class="{ 'dim-others': settings.wallFocus && store.isPlaying && store.current }"
+    :class="{
+      'dim-others': settings.wallFocus && store.isPlaying && store.current,
+      'is-canvas': useCanvas,
+    }"
   >
     <div class="wall-head">
       <span class="wall-label">// {{ store.keyword ? 'SEARCH' : store.shelf.tag }}</span>
-      <h1 class="wall-title px-cjk">{{ store.keyword || store.shelf.name }}</h1>
+      <h1 class="wall-title px-cjk">
+        <NeonTitle :text="store.keyword || store.shelf.name" />
+      </h1>
       <span v-if="store.listStale" class="wall-sync loading" role="status">SYNC<i class="dots" /></span>
-      <nav v-if="!store.keyword && store.shelves.length > 1" class="shelves" aria-label="分区">
+      <nav v-if="!store.keyword && store.shelves.length > 1" class="shelves" :aria-label="t('canvas.partition')">
         <button
           v-for="s in store.shelves"
           :key="s.id"
@@ -212,29 +314,34 @@ onBeforeUnmount(() => {
       </nav>
     </div>
 
-    <div class="grid-box" :class="{ stale: store.listStale }" :aria-busy="store.listStale">
-      <div ref="grid" class="grid">
-        <CoverTile
-          v-for="(t, i) in store.tracks"
-          :key="t.id"
-          :track="t"
-          :index="i"
-          :current="store.current?.id === t.id"
-          :playing="store.isPlaying"
-          @select="store.playFromList(t)"
-        />
-      </div>
-    </div>
+    <CoverCanvas v-if="useCanvas" />
 
-    <div ref="sentinel" class="sentinel">
-      <template v-if="store.listError">
-        <span class="err">ERR::{{ store.listError }}</span>
-        <button class="txt-btn" type="button" @click="store.loadList(!store.tracks.length)">[RETRY]</button>
-      </template>
-      <span v-else-if="store.listLoading" class="loading">LOADING<i class="dots" /></span>
-      <span v-else-if="!store.tracks.length">NO SIGNAL / 无结果</span>
-      <span v-else-if="!store.hasMore">// END OF LIST</span>
-    </div>
+    <template v-else>
+      <div class="grid-box" :class="{ stale: store.listStale }" :aria-busy="store.listStale">
+        <div ref="grid" class="grid">
+          <CoverTile
+            v-for="(t, i) in store.tracks"
+            :key="t.id"
+            :track="t"
+            :index="i"
+            :current="store.current?.id === t.id"
+            :playing="store.isPlaying"
+            :selected="kbTrackId === t.id"
+            @select="store.playFromList(t)"
+          />
+        </div>
+      </div>
+
+      <div ref="sentinel" class="sentinel">
+        <template v-if="store.listError">
+          <span class="err">ERR::{{ store.listError }}</span>
+          <button class="txt-btn" type="button" @click="store.loadList(!store.tracks.length)">[RETRY]</button>
+        </template>
+        <span v-else-if="store.listLoading" class="loading">LOADING<i class="dots" /></span>
+        <span v-else-if="!store.tracks.length">{{ t('canvas.noResult') }}</span>
+        <span v-else-if="!store.hasMore">// END OF LIST</span>
+      </div>
+    </template>
   </section>
 </template>
 
@@ -244,6 +351,20 @@ onBeforeUnmount(() => {
   --cols: 8;
   position: relative;
   padding: 104px 40px calc(var(--dock-h) + 48px);
+}
+
+.wall.is-canvas {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  padding-bottom: var(--dock-h);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.wall.is-canvas .wall-head {
+  flex: none;
 }
 
 @media (max-width: 1600px) {
@@ -298,6 +419,7 @@ onBeforeUnmount(() => {
   font-weight: 400;
   line-height: 1;
   color: var(--text);
+  min-height: 1em;
 }
 
 .shelves .txt-btn {
