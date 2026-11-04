@@ -1,11 +1,19 @@
 import type { CoverSet } from '../api/types'
 
-/** 刚加载失败的封面地址；有时效，免得一次断网让封面整个会话都显示占位 */
+/**
+ * 刚加载失败的封面地址，让之后新建的图片直接跳过。
+ * 有时效：断网恢复后新建的封面会重新尝试（已经显示占位的不会自动重试）
+ */
 const failed = new Map<string, number>()
 const FAILED_TTL = 5 * 60_000
+const FAILED_MAX = 200
 
 export function markCoverFailed(url: string) {
-  failed.set(url, Date.now())
+  const now = Date.now()
+  if (failed.size >= FAILED_MAX) {
+    for (const [u, at] of failed) if (now - at >= FAILED_TTL) failed.delete(u)
+  }
+  failed.set(url, now)
 }
 
 /** 去掉空地址和近期失败过的地址；为空说明该显示占位 */

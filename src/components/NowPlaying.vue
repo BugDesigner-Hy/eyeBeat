@@ -80,13 +80,16 @@ const ghostIndex = ref(0)
 const ghostSrc = computed(() => ghostCandidates.value[ghostIndex.value])
 
 function resetGhost() {
-  ghostCandidates.value = player.current ? usableCovers(coverSources(player.current.cover, 'small')) : []
+  const t = player.current
+  ghostCandidates.value = t ? usableCovers(coverSources(t.cover, 'small')) : []
   ghostIndex.value = 0
 }
 watch(() => player.current, resetGhost, { immediate: true })
 watch(
   () => ui.detailOpen,
-  (open) => open && resetGhost(),
+  (open) => {
+    if (open) resetGhost()
+  },
 )
 
 function onGhostError() {
@@ -350,7 +353,7 @@ function onLeave(el: Element, done: () => void) {
         @pointercancel="onDragEnd"
       >
         <div class="np-bg" aria-hidden="true">
-          <CoverImage :sources="coverSources(player.current.cover, 'medium')" />
+          <CoverImage :sources="coverSources(player.current.cover, 'medium')" :fallback="false" />
         </div>
         <i class="np-grid" aria-hidden="true" />
         <div class="np-content" :class="{ 'np-m': mobile }">
@@ -610,7 +613,9 @@ function onLeave(el: Element, done: () => void) {
 }
 
 .np-ghost-fb {
-  background: var(--bg-2);
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.07) 1px, transparent 1.5px) 0 0 / 8px 8px,
+    var(--bg-2);
 }
 
 @media (max-width: 900px) {
