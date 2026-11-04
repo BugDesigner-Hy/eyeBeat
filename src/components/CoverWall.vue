@@ -13,13 +13,13 @@ const grid = ref<HTMLElement>()
 const sentinel = ref<HTMLElement>()
 
 const EASE = 0.08
-/** 远离焦点的封面最多缩小 / 变淡到的比例 */
-const MIN_SCALE = 0.9
-const MIN_OPACITY = 0.5
+/** 远离焦点的封面最多缩小 / 变淡到的比例（偏亮，避免整墙发闷） */
+const MIN_SCALE = 0.96
+const MIN_OPACITY = 0.84
 /** 衰减半径占视口对角线的比例 */
-const RADIUS = 0.55
+const RADIUS = 0.48
 /** 指针在视口边缘时，深度为 1 的封面偏移的像素数 */
-const PARALLAX = 26
+const PARALLAX = 32
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -322,7 +322,7 @@ onBeforeUnmount(() => {
 }
 
 .dim-others :deep(.tile:not(.is-current):not(:hover) .shade) {
-  opacity: 0.55;
+  opacity: 0.22;
 }
 
 .grid {

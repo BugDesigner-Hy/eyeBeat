@@ -11,6 +11,7 @@ import LyricsPanel from './components/LyricsPanel.vue'
 import MobileSheet from './components/MobileSheet.vue'
 import NowPlaying from './components/NowPlaying.vue'
 import PlayerBar from './components/PlayerBar.vue'
+import PowerOffScreen from './components/PowerOffScreen.vue'
 import { useMobile } from './composables/useMobile'
 import { useAccountStore } from './stores/account'
 import { useLyricsStore } from './stores/lyrics'
@@ -47,6 +48,7 @@ watchEffect(() => {
 const ambient = computed(
   () =>
     !mobile.value &&
+    !ui.poweredOff &&
     settings.backdropLyrics &&
     store.isPlaying &&
     ui.idle &&
@@ -59,6 +61,18 @@ const ambient = computed(
     !account.loginOpen,
 )
 watchEffect(() => document.documentElement.classList.toggle('ambient', ambient.value))
+watchEffect(() => document.documentElement.classList.toggle('powered-off', ui.poweredOff))
+
+/** 进入关机：记续播并暂停；开机续播由 PowerOffScreen.finishBoot 处理 */
+watch(
+  () => ui.poweredOff,
+  (off, was) => {
+    if (off && !was) {
+      ui.resumeOnBoot = store.isPlaying
+      if (store.isPlaying) store.toggle()
+    }
+  },
+)
 /** 切歌时歌词重新加载，屏保会短暂退出；用户回来（不再闲置）之前准星都当屏保还开着 */
 const ambientHold = ref(false)
 watch(ambient, (a) => a && (ambientHold.value = true))
@@ -76,12 +90,17 @@ watch(mobile, (m) => !m && ui.toggleMenu(false))
 function onKeydown(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
     e.preventDefault()
-    ui.togglePalette()
+    if (!ui.poweredOff) ui.togglePalette()
     return
   }
-  if (ui.paletteOpen || account.loginOpen) return
   const target = e.target as HTMLElement
   if (target.closest('input, textarea, [role="slider"]') || e.ctrlKey || e.metaKey || e.altKey) return
+  if (e.key.toLowerCase() === 'p') {
+    e.preventDefault()
+    ui.powerToggle()
+    return
+  }
+  if (ui.poweredOff || ui.paletteOpen || account.loginOpen) return
   if (e.key === '/') {
     e.preventDefault()
     ui.togglePalette(true)
@@ -150,6 +169,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   <Transition name="toast">
     <AccountDialog v-if="account.loginOpen" />
   </Transition>
+
+  <PowerOffScreen v-if="ui.poweredOff" />
 
   <div class="scanlines" aria-hidden="true" />
 </template>

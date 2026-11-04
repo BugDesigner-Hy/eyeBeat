@@ -22,6 +22,10 @@ export const useUiStore = defineStore('ui', () => {
   /** 桌面窄屏（< 1440px）详情页的评论抽屉 */
   const commentsOpen = ref(false)
   const menuOpen = ref(false)
+  /** 全屏关机待机；不写 localStorage，刷新即开机 */
+  const poweredOff = ref(false)
+  /** 关机前是否在播放，开机后用于续播 */
+  const resumeOnBoot = ref(false)
   const installPrompt = shallowRef<InstallPromptEvent | null>(null)
 
   window.addEventListener('beforeinstallprompt', (e) => {
@@ -48,6 +52,28 @@ export const useUiStore = defineStore('ui', () => {
   }
   const toggleComments = (v = !commentsOpen.value) => (commentsOpen.value = v)
   const toggleMenu = (v = !menuOpen.value) => (menuOpen.value = v)
+
+  function togglePower(v = !poweredOff.value) {
+    if (v) {
+      menuOpen.value = false
+      paletteOpen.value = false
+      fxOpen.value = false
+      detailOpen.value = false
+      commentsOpen.value = false
+      lyricsVisible.value = false
+    }
+    poweredOff.value = v
+  }
+
+  /** 关机屏外的入口（顶栏 / P）请求开机，由 PowerOffScreen 播 CRT 后关 poweredOff */
+  const bootNonce = ref(0)
+  function requestBoot() {
+    if (poweredOff.value) bootNonce.value++
+  }
+  function powerToggle() {
+    if (poweredOff.value) requestBoot()
+    else togglePower(true)
+  }
 
   /** 一段时间没有任何输入：用于进入氛围模式 */
   const idle = ref(false)
@@ -76,6 +102,9 @@ export const useUiStore = defineStore('ui', () => {
     detailPage,
     commentsOpen,
     menuOpen,
+    poweredOff,
+    resumeOnBoot,
+    bootNonce,
     coverLifted,
     barCollapsed,
     idle,
@@ -87,6 +116,9 @@ export const useUiStore = defineStore('ui', () => {
     toggleDetail,
     toggleComments,
     toggleMenu,
+    togglePower,
+    requestBoot,
+    powerToggle,
     toggleBar,
   }
 })

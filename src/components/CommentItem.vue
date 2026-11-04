@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import type { TrackComment } from '../api/types'
 import { fmtNum } from '../utils/num'
 import { relTime } from '../utils/time'
+import PixelAvatar from './PixelAvatar.vue'
 import PixelIcon from './PixelIcon.vue'
 
 const props = defineProps<{ c: TrackComment; reply?: boolean }>()
 
 const MAX_REPLIES = 2
 
-const broken = ref(false)
-const initial = computed(() => (Array.from(props.c.user.name.trim())[0] ?? '?').toUpperCase())
+const seed = computed(() => props.c.user.name || props.c.id)
 const meta = computed(() => {
   const c = props.c
   const where = c.at != null ? `@${Math.floor(c.at / 60)}:${String(Math.floor(c.at % 60)).padStart(2, '0')}` : c.location
@@ -23,16 +23,7 @@ const more = computed(() => Math.max(0, (props.c.replyCount ?? 0) - replies.valu
 <template>
   <article class="cc" :class="{ reply }">
     <span class="cc-avatar" aria-hidden="true">
-      <img
-        v-if="c.user.avatar && !broken"
-        :src="c.user.avatar"
-        alt=""
-        loading="lazy"
-        decoding="async"
-        draggable="false"
-        @error="broken = true"
-      />
-      <b v-else>{{ initial }}</b>
+      <PixelAvatar :seed="seed" :size="reply ? 20 : 28" />
     </span>
     <div class="cc-body">
       <p class="cc-meta">
@@ -69,27 +60,11 @@ const more = computed(() => Math.max(0, (props.c.replyCount ?? 0) - replies.valu
   height: 28px;
   overflow: hidden;
   background: color-mix(in srgb, var(--accent) 16%, var(--bg-2));
-  color: var(--accent);
-  font-family: var(--font-pixel);
-  font-size: 12px;
-  line-height: 1;
 }
 
 .reply .cc-avatar {
   width: 20px;
   height: 20px;
-  font-size: 9px;
-}
-
-.cc-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  image-rendering: pixelated;
-}
-
-.cc-avatar b {
-  font-weight: 400;
 }
 
 .cc-body {

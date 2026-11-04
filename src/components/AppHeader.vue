@@ -4,6 +4,7 @@ import { availableProviders, provider, switchProvider } from '../api'
 import { useAccountStore } from '../stores/account'
 import { usePlayerStore } from '../stores/player'
 import { useUiStore } from '../stores/ui'
+import PixelAvatar from './PixelAvatar.vue'
 import VipBadge from './VipBadge.vue'
 
 const store = usePlayerStore()
@@ -49,7 +50,7 @@ function clear() {
         :title="account.loggedIn ? '网易云账号' : '扫码登录网易云'"
         @click="account.openLogin(true)"
       >
-        <img v-if="account.profile" :src="`${account.profile.avatar}?param=40y40`" alt="" />
+        <PixelAvatar v-if="account.profile" :seed="account.profile.id" :size="18" />
         <VipBadge v-if="account.profile?.vip" />
         {{ account.profile ? account.profile.nickname : '[LOGIN]' }}
       </button>
@@ -65,7 +66,36 @@ function clear() {
       </button>
       <span v-else>SRC::{{ store.providerName.toUpperCase() }}</span>
       <span class="dim">{{ String(store.tracks.length).padStart(3, '0') }} TRK</span>
+      <button
+        type="button"
+        class="pwr-btn"
+        title="关机（P）"
+        aria-label="关机"
+        @click="ui.powerToggle()"
+      >
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+          <path
+            fill="currentColor"
+            d="M7 1h2v7H7zM4.2 3.1l1.4 1.4A4.9 4.9 0 0 0 3 9a5 5 0 0 0 10 0 4.9 4.9 0 0 0-2.6-4.5l1.4-1.4A6.9 6.9 0 0 1 15 9a7 7 0 1 1-14 0 6.9 6.9 0 0 1 3.2-5.9z"
+          />
+        </svg>
+      </button>
     </div>
+
+    <button
+      type="button"
+      class="pwr-btn mobile-pwr"
+      title="关机（P）"
+      aria-label="关机"
+      @click="ui.powerToggle()"
+    >
+      <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true">
+        <path
+          fill="currentColor"
+          d="M7 1h2v7H7zM4.2 3.1l1.4 1.4A4.9 4.9 0 0 0 3 9a5 5 0 0 0 10 0 4.9 4.9 0 0 0-2.6-4.5l1.4-1.4A6.9 6.9 0 0 1 15 9a7 7 0 1 1-14 0 6.9 6.9 0 0 1 3.2-5.9z"
+        />
+      </svg>
+    </button>
 
     <button
       type="button"
@@ -183,11 +213,6 @@ function clear() {
   font-family: var(--font-mono), var(--font-sans);
 }
 
-.acct-btn img {
-  flex: none;
-  width: 18px;
-  height: 18px;
-}
 
 .dot {
   width: 6px;
@@ -200,24 +225,54 @@ function clear() {
   animation: blink 1s steps(2) infinite;
 }
 
+.pwr-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  background: #0e1116;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.pwr-btn:hover,
+.pwr-btn:focus-visible {
+  border-color: var(--accent);
+  outline: 1px dashed var(--accent);
+  outline-offset: 2px;
+}
+
+.mobile-pwr,
 .menu-btn {
   display: none;
 }
 
 @media (max-width: 1000px) {
   .top {
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr) auto;
     padding: 0 16px;
   }
   .status {
     display: none;
   }
+  .mobile-pwr {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    cursor: pointer;
+  }
 }
 
 @media (max-width: 640px) {
   .top {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 10px;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    gap: 4px;
     height: calc(56px + env(safe-area-inset-top));
     padding: env(safe-area-inset-top) 8px 0 14px;
   }
@@ -231,6 +286,7 @@ function clear() {
   .search input {
     font-size: 16px;
   }
+  .mobile-pwr,
   .menu-btn {
     display: grid;
     place-items: center;

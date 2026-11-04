@@ -5,6 +5,7 @@ import { useAccountStore } from '../stores/account'
 import { usePlayerStore } from '../stores/player'
 import { useSettingsStore } from '../stores/settings'
 import { useUiStore } from '../stores/ui'
+import PixelAvatar from './PixelAvatar.vue'
 import VipBadge from './VipBadge.vue'
 
 const ui = useUiStore()
@@ -65,7 +66,7 @@ function run(fn: () => void) {
           <button type="button" class="ms-row" @click="run(() => account.openLogin(true))">
             <span class="ms-key">ACCOUNT</span>
             <span class="ms-val">
-              <img v-if="account.profile" :src="`${account.profile.avatar}?param=40y40`" alt="" />
+              <PixelAvatar v-if="account.profile" :seed="account.profile.id" :size="18" />
               <VipBadge v-if="account.profile?.vip" />
               {{ account.profile ? account.profile.nickname : '[LOGIN]' }}
             </span>
@@ -212,6 +213,11 @@ function run(fn: () => void) {
 
 .ms-val.on {
   color: var(--accent);
+}
+
+.ms-val :deep(.pa) {
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .ms-val img {

@@ -78,6 +78,8 @@ const sources = computed(() =>
   color: inherit;
   cursor: crosshair;
   text-align: left;
+  /* scale 放在外层，避免和 CoverWall 写在 .tile-inner 上的视差 transform 打架 */
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .cap {
@@ -114,6 +116,9 @@ const sources = computed(() =>
   will-change: transform, opacity;
   animation: tile-in 320ms steps(4) backwards;
   animation-delay: var(--delay);
+  transition:
+    filter 180ms var(--ease-out),
+    box-shadow 180ms var(--ease-out);
 }
 
 @keyframes tile-in {
@@ -155,10 +160,44 @@ const sources = computed(() =>
     linear-gradient(var(--c) 0 0) bottom right / var(--w) var(--l);
   background-repeat: no-repeat;
   background-size: 0 0;
+  transition:
+    background-size 160ms steps(3),
+    box-shadow 180ms var(--ease-out);
+}
+
+.tile:hover,
+.tile:focus-visible {
+  z-index: 40;
+  transform: scale(1.07);
+}
+
+.tile:hover .tile-inner,
+.tile:focus-visible .tile-inner {
+  filter: brightness(1.14) saturate(1.1);
+  box-shadow:
+    0 14px 32px rgba(0, 0, 0, 0.55),
+    0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent),
+    0 0 22px color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
 .tile:hover .frame,
-.tile:focus-visible .frame,
+.tile:focus-visible .frame {
+  --l: 22px;
+  --w: 3px;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 70%, transparent),
+    inset 0 0 20px color-mix(in srgb, var(--accent) 22%, transparent);
+  background-size:
+    var(--l) var(--w),
+    var(--w) var(--l),
+    var(--l) var(--w),
+    var(--w) var(--l),
+    var(--l) var(--w),
+    var(--w) var(--l),
+    var(--l) var(--w),
+    var(--w) var(--l);
+}
+
 .is-current .frame {
   background-size:
     var(--l) var(--w),
@@ -212,13 +251,18 @@ const sources = computed(() =>
   padding: 22px 12px 10px;
   background: linear-gradient(transparent, rgba(6, 8, 10, 0.88));
   transform: translateY(100%);
-  transition: transform 180ms steps(3);
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
 }
 
 .tile:hover .meta,
 .tile:focus-visible .meta {
   transform: none;
+}
+
+.tile:hover .shade,
+.tile:focus-visible .shade {
+  opacity: 0;
 }
 
 .meta-title {
@@ -279,8 +323,16 @@ const sources = computed(() =>
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .tile {
+    transition: none;
+  }
+  .tile:hover,
+  .tile:focus-visible {
+    transform: none;
+  }
   .tile-inner {
     animation: none;
+    transition: none;
   }
   /* 全局规则会把闪烁压成 0.01ms，改为锁定期间静态高亮 */
   .tile[data-lock] .tile-inner::after {
@@ -342,8 +394,18 @@ const sources = computed(() =>
 
 /* 触屏点过之后 :hover 会一直粘着，不能靠它显示角标 */
 @media (hover: none) {
+  .tile:hover,
+  .tile:focus-visible {
+    transform: none;
+  }
+  .tile:hover .tile-inner,
+  .tile:focus-visible .tile-inner {
+    filter: none;
+    box-shadow: none;
+  }
   .tile:hover:not(.is-current) .frame {
     background-size: 0 0;
+    box-shadow: inset 0 0 0 1px var(--line);
   }
   .tile:hover .meta {
     transform: translateY(100%);

@@ -162,6 +162,15 @@ export function useCommands() {
         run: () => switchProvider(p.id),
       })),
 
+      {
+        id: 'power',
+        group: 'SYSTEM',
+        title: ui.poweredOff ? '开机' : '关机',
+        keywords: 'power off on standby crt shutdown boot',
+        hint: 'P',
+        active: ui.poweredOff,
+        run: () => ui.powerToggle(),
+      },
       { id: 'clear-lyrics', group: 'SYSTEM', title: '清除歌词缓存', keywords: 'cache clear', run: () => void lyrics.clearCache() },
     ]
 
