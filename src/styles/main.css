@@ -241,12 +241,16 @@ html.detail-open {
   }
 }
 
-/* 氛围模式：封面墙与顶栏退后，退出时要快，进入时慢慢沉下去 */
+/*
+ * 氛围模式：进入时封面墙与顶栏慢慢沉下去；退出时等歌词开始散开后再逐渐亮回来，
+ * 和歌词退场（LyricsBackdrop，约 700ms）同时结束
+ */
 main,
 header.top {
+  /* 两头缓：ease-out 会在前 200ms 里就亮回九成，看起来还是“立刻恢复” */
   transition:
-    filter 260ms var(--ease-out),
-    opacity 260ms var(--ease-out);
+    filter 600ms 100ms cubic-bezier(0.65, 0, 0.35, 1),
+    opacity 600ms 100ms cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 html.ambient {
@@ -256,11 +260,15 @@ html.ambient {
 html.ambient main {
   filter: brightness(0.22) saturate(0.3) blur(2px);
   transition-duration: 1200ms;
+  transition-delay: 0ms;
+  transition-timing-function: var(--ease-out);
 }
 
 html.ambient header.top {
   opacity: 0.15;
   transition-duration: 1200ms;
+  transition-delay: 0ms;
+  transition-timing-function: var(--ease-out);
 }
 
 /* ---------- 触控 ---------- */

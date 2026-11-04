@@ -7,7 +7,7 @@ import { usePlayerStore } from '../stores/player'
 const player = usePlayerStore()
 const lyrics = useLyricsStore()
 
-/** 逐字填充按 1/8 量化，和歌词面板保持一致的像素扫描感 */
+/** 逐字填充�?1/8 量化，和歌词面板保持一致的像素扫描�?*/
 const WORD_STEPS = 8
 
 const at = (i: number) => (i >= 0 ? (lyrics.lines[i] ?? null) : null)
@@ -51,6 +51,8 @@ function wordProgress(w: LyricWord): number {
 
 <style scoped>
 .backdrop {
+  /* ???????ease-in ??????????????? */
+  --ease-exit: cubic-bezier(0.33, 0, 0.67, 1);
   position: fixed;
   inset: 0 0 var(--dock-h);
   z-index: 20;
@@ -84,7 +86,7 @@ function wordProgress(w: LyricWord): number {
   line-clamp: 2;
   overflow: hidden;
   filter: drop-shadow(0 0 18px color-mix(in srgb, var(--accent) 45%, transparent));
-  /* 横向扫描线纹理，代替像素字体带来的“屏幕感”，同时不影响中文字形 */
+  /* 横向扫描线纹理，代替像素字体带来的“屏幕感”，同时不影响中文字�?*/
   mask-image: repeating-linear-gradient(0deg, #000 0 3px, rgba(0, 0, 0, 0.6) 3px 4px);
 }
 
@@ -141,13 +143,26 @@ function wordProgress(w: LyricWord): number {
   bottom: 20px;
 }
 
-/* 进入：一道扫描光自下而上显影；退出要快，用户一动鼠标就让位 */
+/*
+ * 进入：一道扫描光自下而上显影�? * 退出：外圈先散（标签、上下句、翻译），当前句最后消失；总长要和 App.vue �?Transition �?leave 时长一�? */
 .ambient-enter-active {
   animation: ambient-in 900ms var(--ease-out) both;
 }
 
-.ambient-leave-active {
-  animation: ambient-out 260ms var(--ease-in) both;
+.ambient-leave-active :is(.bd-tag, .bd-counter) {
+  animation: ambient-out 300ms var(--ease-exit) both;
+}
+
+.ambient-leave-active .bd-side {
+  animation: ambient-out 320ms 80ms var(--ease-exit) both;
+}
+
+.ambient-leave-active .bd-trans {
+  animation: ambient-out 340ms 160ms var(--ease-exit) both;
+}
+
+.ambient-leave-active .bd-line {
+  animation: ambient-out-line 460ms 220ms var(--ease-exit) both;
 }
 
 @keyframes ambient-in {
@@ -168,8 +183,17 @@ function wordProgress(w: LyricWord): number {
 @keyframes ambient-out {
   to {
     opacity: 0;
-    transform: scale(1.02);
+    transform: translateY(-10px);
     filter: blur(6px);
+  }
+}
+
+/* 保留原有的辉光再叠模糊，滤镜列表前缀一致才能平滑插�?*/
+@keyframes ambient-out-line {
+  to {
+    opacity: 0;
+    transform: translateY(-14px) scale(1.02);
+    filter: drop-shadow(0 0 18px color-mix(in srgb, var(--accent) 45%, transparent)) blur(8px);
   }
 }
 
