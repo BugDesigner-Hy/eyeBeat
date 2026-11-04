@@ -44,8 +44,10 @@ watch(
   { flush: 'post' },
 )
 
-const PAGES = ['PLAY', 'LRC', 'INFO'] as const
-/** 连续的页位置 0–2，驱动页码下划线跟手移动 */
+const PAGES = ['PLAY', 'LRC', 'INFO', 'CMT'] as const
+/** 没有评论时只有前三页；评论晚到时追加在末尾，不跳页 */
+const pages = computed(() => (comments.present ? PAGES : PAGES.slice(0, 3)))
+/** 连续的页位置 0–3，驱动页码下划线跟手移动 */
 const pos = ref(0)
 const page = computed(() => Math.round(pos.value))
 /** 进入过的页才播放信息块的组装动画 */
@@ -65,6 +67,18 @@ watch(mobile, () =>
     pos.value = 0
     seen.value = [0]
   }),
+)
+
+/** 停在评论页时切到没有评论的歌：第 4 页被移除，回到信息页 */
+watch(
+  () => comments.present,
+  (has) => {
+    const el = activePager
+    if (has || !el || page.value < 3) return
+    el.scrollLeft = 2 * el.clientWidth
+    pos.value = 2
+  },
+  { flush: 'post' },
 )
 
 function onPagerScroll(e: Event) {
@@ -383,7 +397,7 @@ function onLeave(el: Element, done: () => void) {
             <button type="button" class="txt-btn" title="关闭（Esc）" @click="ui.toggleDetail(false)">[CLOSE]</button>
             <nav v-if="mobile" class="np-dots" :style="{ '--p': pos }" aria-label="详情分页">
               <button
-                v-for="(label, i) in PAGES"
+                v-for="(label, i) in pages"
                 :key="label"
                 type="button"
                 class="np-dot"
@@ -462,6 +476,14 @@ function onLeave(el: Element, done: () => void) {
               <DetailInfo :track="player.current" part="meta" />
               <DetailTelemetry :track="player.current" :bars="16" :rows="7" />
               <UpNext />
+            </section>
+            <section
+              v-if="comments.present"
+              class="np-page np-page-scroll"
+              :class="{ seen: seen.includes(3) }"
+              data-page="cmt"
+            >
+              <DetailComments embedded />
             </section>
           </div>
 
