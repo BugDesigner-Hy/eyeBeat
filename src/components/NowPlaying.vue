@@ -628,8 +628,8 @@ function onLeave(el: Element, done: () => void) {
                   @click="toggleCmt"
                 >
                   <span class="np-dock-hint">[+]</span>
-                  <span class="np-rail-text">// CMT</span>
-                  <span class="np-rail-text np-rail-num">{{ cmtCount }}</span>
+                  <span class="np-rail-text np-rail-tag">// CMT</span>
+                  <span class="np-rail-text">{{ cmtCount }}</span>
                 </button>
                 <i class="np-fold-box" aria-hidden="true"><b class="np-label np-fold-tag" /></i>
                 <i class="np-fold-line" aria-hidden="true" />
@@ -893,7 +893,7 @@ function onLeave(el: Element, done: () => void) {
   letter-spacing: 0.12em;
 }
 
-.np-rail-text:first-of-type {
+.np-rail-tag {
   color: var(--accent);
 }
 
