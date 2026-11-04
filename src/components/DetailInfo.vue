@@ -4,7 +4,7 @@ import type { Track } from '../api/types'
 import { useDetailStore } from '../stores/detail'
 import { fmtNum } from '../utils/num'
 
-const props = withDefaults(defineProps<{ track: Track; part?: 'all' | 'head' | 'meta' }>(), { part: 'all' })
+const props = withDefaults(defineProps<{ track: Track; part?: 'all' | 'head' }>(), { part: 'all' })
 const store = useDetailStore()
 const info = computed(() => store.detail)
 
@@ -49,28 +49,26 @@ function fmtDuration(sec: number): string {
 
 <template>
   <div class="di">
-    <template v-if="part !== 'meta'">
-      <p class="np-label np-in" style="--i: 1">// TRACK</p>
-      <h2 class="di-title np-in" style="--i: 1">
-        <span :key="track.id" class="di-type" :style="{ '--n': typeSteps }">{{ track.title }}</span>
-      </h2>
-      <p class="di-artist np-in" style="--i: 2">
-        {{ track.artist }}
-        <template v-if="track.album">
-          <span class="sep">·</span><span class="dim">{{ track.album }}</span>
-        </template>
-      </p>
-      <p v-if="info?.aliases?.length" class="di-alias np-in" style="--i: 3">{{ info.aliases.join(' / ') }}</p>
-      <ul class="di-tags np-in" style="--i: 3">
-        <li>{{ track.provider.toUpperCase() }}</li>
-        <li>{{ fmtDuration(track.duration) }}</li>
-        <li v-if="info?.released">{{ info.released }}</li>
-        <li v-if="info?.genre && info.genre !== track.album">{{ info.genre }}</li>
-        <li v-if="info?.mood">{{ info.mood }}</li>
-        <li v-for="q in info?.quality ?? []" :key="q" class="q">{{ q }}</li>
-        <li v-for="t in info?.tags?.slice(0, 6) ?? []" :key="t">#{{ t }}</li>
-      </ul>
-    </template>
+    <p class="np-label np-in" style="--i: 1">// TRACK</p>
+    <h2 class="di-title np-in" style="--i: 1">
+      <span :key="track.id" class="di-type" :style="{ '--n': typeSteps }">{{ track.title }}</span>
+    </h2>
+    <p class="di-artist np-in" style="--i: 2">
+      {{ track.artist }}
+      <template v-if="track.album">
+        <span class="sep">·</span><span class="dim">{{ track.album }}</span>
+      </template>
+    </p>
+    <p v-if="info?.aliases?.length" class="di-alias np-in" style="--i: 3">{{ info.aliases.join(' / ') }}</p>
+    <ul class="di-tags np-in" style="--i: 3">
+      <li>{{ track.provider.toUpperCase() }}</li>
+      <li>{{ fmtDuration(track.duration) }}</li>
+      <li v-if="info?.released">{{ info.released }}</li>
+      <li v-if="info?.genre && info.genre !== track.album">{{ info.genre }}</li>
+      <li v-if="info?.mood">{{ info.mood }}</li>
+      <li v-for="q in info?.quality ?? []" :key="q" class="q">{{ q }}</li>
+      <li v-for="t in info?.tags?.slice(0, 6) ?? []" :key="t">#{{ t }}</li>
+    </ul>
     <template v-if="part !== 'head'">
       <dl v-if="info?.stats.length" class="di-stats">
         <div v-for="(s, i) in info.stats" :key="s.label" class="np-in" :style="{ '--i': 4 + i }">
