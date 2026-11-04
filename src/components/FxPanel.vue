@@ -428,4 +428,17 @@ function cycleCrossfade() {
     opacity: 0;
   }
 }
+
+@media (max-width: 640px) {
+  .fx {
+    left: 0;
+    right: 0;
+    bottom: var(--dock-h);
+    width: auto;
+    max-height: 70vh;
+    overflow-y: auto;
+    box-sizing: border-box;
+    padding-bottom: 16px;
+  }
+}
 </style>

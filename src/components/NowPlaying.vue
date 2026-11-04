@@ -1,29 +1,85 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { provider } from '../api'
-import { usePlayerStore } from '../stores/player'
+import { useMobile } from '../composables/useMobile'
+import { useLyricsStore } from '../stores/lyrics'
+import { MODE_LABEL, MODE_TITLE, usePlayerStore } from '../stores/player'
 import { useUiStore } from '../stores/ui'
 import { coverSources } from '../utils/cover'
+import { fmtTime } from '../utils/time'
 import CoverImage from './CoverImage.vue'
 import DetailInfo from './DetailInfo.vue'
 import DetailLyrics from './DetailLyrics.vue'
 import DetailTelemetry from './DetailTelemetry.vue'
+import PixelIcon from './PixelIcon.vue'
+import RobotEyes from './RobotEyes.vue'
+import SegmentBar from './SegmentBar.vue'
 import UpNext from './UpNext.vue'
 
 const player = usePlayerStore()
 const ui = useUiStore()
+const mobile = useMobile()
+const lyrics = useLyricsStore()
+
+const PAGES = ['PLAY', 'LRC', 'INFO'] as const
+/** 连续的页位置 0–2，驱动页码下划线跟手移动 */
+const pos = ref(0)
+const page = computed(() => Math.round(pos.value))
+/** 进入过的页才播放信息块的组装动画 */
+const seen = ref<number[]>([0])
+let posRaf = 0
+/** 关闭后立刻重开时，离场中的旧分页容器仍在 DOM 里，只认当前这一个 */
+let activePager: HTMLElement | null = null
+let activeRoot: Element | null = null
+
+/** 打开状态下跨越断点（例如旋转手机）时分页容器会重建，要重新认领 */
+watch(mobile, () =>
+  nextTick(() => {
+    if (!activeRoot) return
+    cancelAnimationFrame(posRaf)
+    posRaf = 0
+    activePager = activeRoot.querySelector<HTMLElement>('.np-pager')
+    pos.value = 0
+    seen.value = [0]
+  }),
+)
+
+function onPagerScroll(e: Event) {
+  const el = e.currentTarget as HTMLElement
+  if (el !== activePager || posRaf) return
+  posRaf = requestAnimationFrame(() => {
+    posRaf = 0
+    if (!el.clientWidth) return
+    pos.value = el.scrollLeft / el.clientWidth
+    if (!seen.value.includes(page.value)) seen.value = [...seen.value, page.value]
+  })
+}
+
+function goPage(i: number) {
+  const el = activePager
+  el?.scrollTo({ left: i * el.clientWidth, behavior: reduceMotion ? 'auto' : 'smooth' })
+}
+
+const progress = computed(() => (player.duration ? player.currentTime / player.duration : 0))
+const currentLine = computed(() =>
+  lyrics.lyrics?.synced ? (lyrics.lines[lyrics.activeLine]?.text ?? '') : '',
+)
 
 const DRAG_CLOSE = 120
 const DRAG_SLOP = 6
 
 const crossOrigin = provider.coverCors ? 'anonymous' : undefined
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 const dragY = ref(0)
 const dragging = ref(false)
 let drag: { id: number; y: number } | null = null
 
 function onDragStart(e: PointerEvent) {
-  if (e.button !== 0 || (e.target as HTMLElement).closest('button, a, input, [data-no-drag]')) return
+  const t = e.target as HTMLElement
+  if (e.button !== 0 || t.closest('button, a, input, [role="slider"], [data-no-drag]')) return
+  // 手机端歌词页和信息页的纵向手势用于滚动
+  if (mobile.value && !t.closest('.np-head, [data-page="play"]')) return
   const content = (e.currentTarget as HTMLElement).querySelector('.np-content')
   if (content && content.scrollTop > 0) return
   drag = { id: e.pointerId, y: e.clientY }
@@ -56,7 +112,6 @@ const shellStyle = computed(() =>
   dragY.value ? { translate: `0 ${dragY.value}px`, opacity: String(1 - Math.min(dragY.value / 600, 0.5)) } : undefined,
 )
 
-const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 const EASE_OUT = 'cubic-bezier(0.16, 1, 0.3, 1)'
 const EASE_IN = 'cubic-bezier(0.7, 0, 0.84, 0)'
 const FLY_OUT = 'cubic-bezier(0.2, 0.8, 0.2, 1)'
@@ -85,9 +140,9 @@ function parts(el: Element) {
   }
 }
 
-/** 播放栏收起时缩略图不可见，不做飞行 */
+/** 播放栏收起时缩略图不可见；手机端不在第 1 页时大封面不在视口内，都不做飞行 */
 function thumbRect(): DOMRect | null {
-  if (ui.barCollapsed) return null
+  if (mobile.value ? page.value !== 0 : ui.barCollapsed) return null
   const r = document.querySelector('[data-np-thumb]')?.getBoundingClientRect()
   return r && r.width > 0 ? r : null
 }
@@ -140,6 +195,14 @@ function onEnter(el: Element, done: () => void) {
   const gen = ++generation
   const p = parts(el)
   dragY.value = 0
+  const start = mobile.value ? ui.detailPage : 0
+  pos.value = start
+  seen.value = [start]
+  cancelAnimationFrame(posRaf)
+  posRaf = 0
+  activeRoot = el
+  activePager = el.querySelector<HTMLElement>('.np-pager')
+  if (activePager) activePager.scrollLeft = start * activePager.clientWidth
   ui.coverLifted = true
   if (reduceMotion) {
     void allDone([fade(p.shell, 0, 1, 'none')]).then(done)
@@ -194,6 +257,7 @@ function onEnter(el: Element, done: () => void) {
 function onLeave(el: Element, done: () => void) {
   const gen = ++generation
   const p = parts(el)
+  if (activeRoot === el) activeRoot = null
   // 打开飞行中途关闭：从替身当前位置起飞，取消动画前先量
   const ghostAt = getComputedStyle(p.ghost).visibility === 'visible' ? p.ghost.getBoundingClientRect() : null
   // 打开的 WAAPI 动画会与关闭动画抢同一属性；CSS 入场动画保留，否则未显现的块会闪现
@@ -264,25 +328,96 @@ function onLeave(el: Element, done: () => void) {
           <CoverImage :sources="coverSources(player.current.cover, 'medium')" />
         </div>
         <i class="np-grid" aria-hidden="true" />
-        <div class="np-content">
+        <div class="np-content" :class="{ 'np-m': mobile }">
           <header class="np-head np-in" style="--i: 0">
             <button type="button" class="txt-btn" title="关闭（Esc）" @click="ui.toggleDetail(false)">[CLOSE]</button>
-            <span class="np-tag">// NOW PLAYING · {{ player.providerName.toUpperCase() }}</span>
+            <nav v-if="mobile" class="np-dots" :style="{ '--p': pos }" aria-label="详情分页">
+              <button
+                v-for="(label, i) in PAGES"
+                :key="label"
+                type="button"
+                class="np-dot"
+                :class="{ on: page === i }"
+                :aria-current="page === i ? 'page' : undefined"
+                @click="goPage(i)"
+              >
+                {{ String(i + 1).padStart(2, '0') }} {{ label }}
+              </button>
+              <i class="np-dots-bar" aria-hidden="true" />
+            </nav>
+            <span v-else class="np-tag">// NOW PLAYING · {{ player.providerName.toUpperCase() }}</span>
           </header>
-          <div class="np-left">
-            <div class="np-cover">
-              <CoverImage :sources="coverSources(player.current.cover, 'large')" />
-              <i class="np-corners" aria-hidden="true" />
-            </div>
-            <DetailInfo :track="player.current" />
-          </div>
-          <div class="np-right">
-            <DetailLyrics />
-            <div class="np-lower">
+
+          <div v-if="mobile" class="np-pager" @scroll.passive="onPagerScroll">
+            <section class="np-page" :class="{ seen: seen.includes(0) }" data-page="play">
+              <div class="np-cover">
+                <CoverImage :sources="coverSources(player.current.cover, 'large')" />
+                <i class="np-corners" aria-hidden="true" />
+              </div>
+              <DetailInfo :track="player.current" part="head" />
+              <div class="np-seek np-in" style="--i: 4">
+                <span>{{ fmtTime(player.currentTime) }}</span>
+                <SegmentBar
+                  label="播放进度"
+                  :value="progress"
+                  :seg="4"
+                  :gap="2"
+                  :height="6"
+                  @change="(v) => player.seek(v * player.duration)"
+                />
+                <span>{{ fmtTime(player.duration) }}</span>
+              </div>
+              <div class="np-ctrl np-in" style="--i: 5">
+                <button type="button" class="txt-btn" :title="MODE_TITLE[player.mode]" @click="player.cycleMode()">
+                  [{{ MODE_LABEL[player.mode] }}]
+                </button>
+                <button type="button" class="np-icon" aria-label="上一首" @click="player.prev()">
+                  <PixelIcon name="prev" />
+                </button>
+                <button
+                  type="button"
+                  class="np-play px-cut"
+                  :class="{ on: player.isPlaying }"
+                  :aria-label="player.isPlaying ? '暂停' : '播放'"
+                  @click="player.toggle()"
+                >
+                  <RobotEyes :on="player.isPlaying" :analyser="player.analyser" :scale="4" />
+                </button>
+                <button type="button" class="np-icon" aria-label="下一首" @click="player.next()">
+                  <PixelIcon name="next" />
+                </button>
+                <button type="button" class="txt-btn" title="歌词" @click="goPage(1)">[LRC]</button>
+              </div>
+              <button v-if="currentLine" type="button" class="np-peek np-in" style="--i: 6" @click="goPage(1)">
+                {{ currentLine }}
+              </button>
+            </section>
+            <section class="np-page" :class="{ seen: seen.includes(1) }" data-page="lrc">
+              <DetailLyrics />
+            </section>
+            <section class="np-page np-page-scroll" :class="{ seen: seen.includes(2) }" data-page="info">
+              <DetailInfo :track="player.current" part="meta" />
+              <DetailTelemetry :track="player.current" :bars="16" :rows="7" />
               <UpNext />
-              <DetailTelemetry :track="player.current" />
-            </div>
+            </section>
           </div>
+
+          <template v-else>
+            <div class="np-left">
+              <div class="np-cover">
+                <CoverImage :sources="coverSources(player.current.cover, 'large')" />
+                <i class="np-corners" aria-hidden="true" />
+              </div>
+              <DetailInfo :track="player.current" />
+            </div>
+            <div class="np-right">
+              <DetailLyrics />
+              <div class="np-lower">
+                <UpNext />
+                <DetailTelemetry :track="player.current" />
+              </div>
+            </div>
+          </template>
         </div>
       </section>
       <i class="np-scan" aria-hidden="true" />
@@ -468,5 +603,175 @@ function onLeave(el: Element, done: () => void) {
   .np-lower {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* ---------- 手机端：三页横滑 ---------- */
+.np-content.np-m {
+  display: flex;
+  flex-direction: column;
+  padding: calc(8px + env(safe-area-inset-top)) 0 0;
+  overflow: hidden;
+}
+
+.np-m .np-head {
+  touch-action: pan-x;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 12px 4px 16px;
+}
+
+.np-dots {
+  position: relative;
+  display: flex;
+  gap: 4px;
+}
+
+.np-dot {
+  width: 64px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.np-dot.on {
+  color: var(--accent);
+}
+
+.np-dots-bar {
+  position: absolute;
+  left: 0;
+  bottom: 8px;
+  width: 64px;
+  height: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  transform: translateX(calc(var(--p, 0) * 68px));
+  pointer-events: none;
+}
+
+.np-m > .np-pager {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.np-pager::-webkit-scrollbar {
+  display: none;
+}
+
+.np-page {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 0;
+  padding: 8px 20px 20px;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+/* 没翻到的页先停在组装动画的起点，翻到时再播放 */
+.np-page:not(.seen) :deep(.np-in) {
+  animation-play-state: paused;
+}
+
+[data-page='play'] {
+  justify-content: safe center;
+  gap: 14px;
+  /* 纵向拖动交给下拉关闭，横向交给翻页 */
+  touch-action: pan-x;
+}
+
+[data-page='play'] .np-cover {
+  align-self: center;
+  /* 播放页不能纵向滚动：给标题、进度、控制和歌词预览留出约 440px */
+  width: clamp(160px, calc(100dvh - 440px), min(82vw, 46dvh));
+  margin: 4px 0 6px;
+}
+
+.np-seek {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  color: var(--text-dim);
+}
+
+.np-ctrl {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.np-ctrl .txt-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.np-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.np-play {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  border: 0;
+  background: var(--accent);
+  color: var(--bg);
+  cursor: pointer;
+}
+
+.np-peek {
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--text-dim);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+[data-page='lrc'] > .dl {
+  flex: 1;
+}
+
+.np-page-scroll {
+  gap: 28px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.np-page-scroll::-webkit-scrollbar {
+  display: none;
 }
 </style>

@@ -90,6 +90,9 @@ function seekTo(time: number) {
   font-size: 18px;
   font-weight: 600;
   line-height: 1.35;
+  /* 当前句放大 1.06 后仍留在框内 */
+  max-width: calc(100% / 1.06);
+  overflow-wrap: anywhere;
   color: var(--text-dim);
   opacity: calc(1 - var(--k) * 0.1);
   cursor: pointer;

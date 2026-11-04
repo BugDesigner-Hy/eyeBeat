@@ -20,7 +20,10 @@ export function setSessionCookie(value: string) {
   else localStorage.removeItem(COOKIE_KEY)
 }
 
-/** API 服务按 URL 缓存 2 分钟；带上会话指纹，避免登录前后互相命中缓存 */
+/**
+ * API 服务按 URL 缓存 2 分钟；带上会话指纹，避免登录前后互相命中缓存。
+ * 参数名不能与接口参数重名（例如歌单接口的 s 会原样转发给网易云）
+ */
 function sessionTag(): string {
   let h = 0
   for (let i = 0; i < cookie.length; i++) h = (Math.imul(h, 31) + cookie.charCodeAt(i)) | 0
@@ -51,14 +54,18 @@ interface CallOptions {
 
 export async function ncm<T>(path: string, params: QueryParams = {}, opts: CallOptions = {}): Promise<T> {
   if (!BASE) throw new NeteaseError('未配置 VITE_NETEASE_API_BASE')
-  const query = qs({ ...params, noCookie: 'true', s: sessionTag(), timestamp: opts.fresh ? Date.now() : undefined })
+  const query = qs({ ...params, noCookie: 'true', session: sessionTag(), timestamp: opts.fresh ? Date.now() : undefined })
   const res = await fetch(`${BASE}${path}?${query}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ cookie }),
   })
   const body = (await res.json().catch(() => null)) as (T & Envelope) | null
-  if (!body) throw new NeteaseError(`网易云接口异常（HTTP ${res.status}）`)
+  if (!body) {
+    throw new NeteaseError(
+      res.status >= 500 ? `无法连接网易云 API 服务（HTTP ${res.status}）` : `网易云接口异常（HTTP ${res.status}）`,
+    )
+  }
   const code = body.code ?? res.status
   if (code === 301) throw new NeteaseError('需要登录网易云', 301)
   if (code !== 200 && !opts.accept?.includes(code)) {

@@ -7,7 +7,7 @@ import { coverSources } from '../utils/cover'
 import { extractPalette } from '../utils/palette'
 import Spectrum from './Spectrum.vue'
 
-const props = defineProps<{ track: Track }>()
+const props = withDefaults(defineProps<{ track: Track; bars?: number; rows?: number }>(), { bars: 24, rows: 10 })
 const player = usePlayerStore()
 
 const MAX_KBPS = 1000
@@ -56,7 +56,7 @@ const rows = computed(() => {
       </div>
     </dl>
     <div class="tm-spec np-in" style="--i: 10">
-      <Spectrum :analyser="player.analyser" :playing="player.isPlaying" :bars="24" :rows="10" />
+      <Spectrum :analyser="player.analyser" :playing="player.isPlaying" :bars="props.bars" :rows="props.rows" />
     </div>
     <div class="tm-palette np-in" style="--i: 11">
       <template v-if="palette">

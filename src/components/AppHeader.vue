@@ -64,6 +64,16 @@ function clear() {
       <span v-else>SRC::{{ store.providerName.toUpperCase() }}</span>
       <span class="dim">{{ String(store.tracks.length).padStart(3, '0') }} TRK</span>
     </div>
+
+    <button
+      type="button"
+      class="menu-btn"
+      aria-label="菜单"
+      :aria-expanded="ui.menuOpen"
+      @click="ui.toggleMenu(true)"
+    >
+      [≡]
+    </button>
   </header>
 </template>
 
@@ -188,6 +198,10 @@ function clear() {
   animation: blink 1s steps(2) infinite;
 }
 
+.menu-btn {
+  display: none;
+}
+
 @media (max-width: 1000px) {
   .top {
     grid-template-columns: auto minmax(0, 1fr);
@@ -195,6 +209,38 @@ function clear() {
   }
   .status {
     display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .top {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 10px;
+    height: calc(56px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) 8px 0 14px;
+  }
+  .logo {
+    font-size: 12px;
+  }
+  .search {
+    height: 36px;
+  }
+  /* 小于 16px 时 iOS 聚焦输入框会自动放大页面 */
+  .search input {
+    font-size: 16px;
+  }
+  .menu-btn {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-family: var(--font-mono);
+    font-size: 22px;
+    color: var(--accent);
+    cursor: pointer;
   }
 }
 </style>
