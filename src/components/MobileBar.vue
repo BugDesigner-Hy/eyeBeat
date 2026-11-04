@@ -91,6 +91,7 @@ const textStyle = computed(() =>
   <footer
     v-if="store.current"
     class="mb"
+    :inert="ui.detailOpen"
     @pointerdown="onDown"
     @pointermove="onMove"
     @pointerup="onUp"
