@@ -39,14 +39,6 @@ export const useCommentsStore = defineStore('comments', () => {
   })
   /** 是否给评论区留位置；切歌后新曲目第一页加载期间沿用原值，避免栏位和分页闪一下 */
   const present = ref(false)
-  watch(
-    [visible, pending, () => ui.detailOpen],
-    ([v, p, open]) => {
-      if (v && open) present.value = true
-      else if (!p) present.value = false
-    },
-    { immediate: true },
-  )
 
   const isCurrent = (key: string) => !!player.current && keyOf(player.current) === key
 
@@ -113,6 +105,15 @@ export const useCommentsStore = defineStore('comments', () => {
     () => [ui.detailOpen, player.current] as const,
     ([open, track]) => {
       if (open && track) void loadFirst(track)
+    },
+    { immediate: true },
+  )
+  // 必须注册在上面的请求 watcher 之后：切到第一页失败过的歌时，先让新请求进入 loading，再判断 pending
+  watch(
+    [visible, pending, () => ui.detailOpen],
+    ([v, p, open]) => {
+      if (v && open) present.value = true
+      else if (!p) present.value = false
     },
     { immediate: true },
   )
