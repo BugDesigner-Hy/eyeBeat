@@ -74,9 +74,11 @@ watch(
   () => comments.present,
   (has) => {
     const el = activePager
-    if (has || !el || page.value < 3) return
+    // 关闭详情页也会让 present 变假，离场中的分页不能再动
+    if (has || !el || !activeRoot || page.value < 3) return
     el.scrollLeft = 2 * el.clientWidth
     pos.value = 2
+    if (!seen.value.includes(2)) seen.value = [...seen.value, 2]
   },
   { flush: 'post' },
 )
@@ -259,7 +261,7 @@ function onEnter(el: Element, done: () => void) {
   const gen = ++generation
   const p = parts(el)
   dragY.value = 0
-  const start = mobile.value ? ui.detailPage : 0
+  const start = mobile.value ? Math.min(ui.detailPage, pages.value.length - 1) : 0
   pos.value = start
   seen.value = [start]
   cancelAnimationFrame(posRaf)
@@ -789,7 +791,7 @@ function onLeave(el: Element, done: () => void) {
   }
 }
 
-/* ---------- 手机端：三页横滑 ---------- */
+/* ---------- 手机端：分页横滑 ---------- */
 .np-content.np-m {
   display: flex;
   flex-direction: column;
