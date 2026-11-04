@@ -8,8 +8,11 @@ const DAY = 86400
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const neteaseBase = env.VITE_NETEASE_API_BASE ?? ''
+  // 部署到子路径（如 GitHub Pages 的 /eyeBeat/）时用 BASE_PATH 指定；本地仍为根路径
+  const base = (env.BASE_PATH || '/').replace(/\/*$/, '/')
 
   return {
+    base,
     plugins: [
       vue(),
       // 相对路径表示由本地 dev / preview 服务代理到自带的 API 子进程
@@ -40,7 +43,7 @@ export default defineConfig(({ mode }) => {
           runtimeCaching: [
             {
               // 分片文件名是内容哈希，可以一直用缓存；样式表名字固定，需要后台更新
-              urlPattern: ({ url }) => url.pathname.startsWith('/fonts/ark-pixel-12/') && url.pathname.endsWith('.woff2'),
+              urlPattern: ({ url }) => url.pathname.includes('/fonts/ark-pixel-12/') && url.pathname.endsWith('.woff2'),
               handler: 'CacheFirst',
               options: {
                 cacheName: 'ark-pixel-12',
@@ -49,7 +52,7 @@ export default defineConfig(({ mode }) => {
               },
             },
             {
-              urlPattern: ({ url }) => url.pathname === '/fonts/ark-pixel-12/ark-pixel-12.css',
+              urlPattern: ({ url }) => url.pathname.endsWith('/fonts/ark-pixel-12/ark-pixel-12.css'),
               handler: 'StaleWhileRevalidate',
               options: {
                 cacheName: 'ark-pixel-12-css',
