@@ -24,6 +24,11 @@ const SLIVER = 0.004
 const GLYPHS = '#%&*+-/<=>?@[]_|\\01ABCDEFXZ'
 const GLITCH_OPACITY = [1, 0.35, 0.85, 0.15, 0.5, 0]
 const GLITCH_SHIFT = [0, -3, 2, -1, 3, 0]
+/** 段数 = 关键帧数 - 1，每一跳正好落在一个关键帧上 */
+const GLITCH_STEPS = `steps(${GLITCH_OPACITY.length - 1}, end)`
+
+/** onLeave 取消动画时要放过这些：离场中的 DOM 不再更新，撤掉 fill 会露出中间状态 */
+export const FOLD_ANIM = 'hud-fold'
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 const at = (ms: number) => ms / TOTAL
@@ -74,16 +79,25 @@ function scramble(el: HTMLElement, text: string, out: boolean, ms: number, delay
 export function useFold(o: FoldOptions) {
   const phase = ref<FoldPhase>(o.get() ? 'closed' : 'open')
   let runId = 0
-  let layoutAnim: Animation | null = null
+  let running: Animation[] = []
 
   function focusEnd(root: HTMLElement, closed: boolean) {
+    // 动画期间用户把焦点移到了别处就不抢回来
+    const active = document.activeElement
+    if (!root.isConnected || (active && active !== document.body && !root.contains(active))) return
     const el = closed
       ? root.querySelector<HTMLElement>('[data-fold-dock]')
       : root.querySelector<HTMLElement>('[data-fold-body] [data-fold-toggle]')
-    if (root.isConnected) el?.focus({ preventScroll: true })
+    el?.focus({ preventScroll: true })
   }
 
   function run(root: HTMLElement, closing: boolean, lay: ReturnType<FoldOptions['layout']>, id: number) {
+    const anims = build(root, closing, lay, id)
+    for (const a of anims) a.id = FOLD_ANIM
+    return anims
+  }
+
+  function build(root: HTMLElement, closing: boolean, lay: ReturnType<FoldOptions['layout']>, id: number) {
     const q = <T extends HTMLElement>(s: string) => root.querySelector<T>(s)
     const body = q('[data-fold-body]')
     const dock = q('[data-fold-dock]')
@@ -92,18 +106,20 @@ export function useFold(o: FoldOptions) {
     const tag = q('.np-fold-tag')
     const anims: Animation[] = []
     if (lay) {
-      layoutAnim = lay.el.animate(lay.keyframes, {
-        duration: LAYOUT_MS,
-        delay: closing ? 160 : 0,
-        easing: INOUT,
-        fill: 'both',
-      })
-      anims.push(layoutAnim)
+      anims.push(
+        lay.el.animate(lay.keyframes, {
+          duration: LAYOUT_MS,
+          delay: closing ? 160 : 0,
+          easing: INOUT,
+          fill: 'both',
+        }),
+      )
     }
     if (!body || !dock || !box || !line || !tag) return anims
 
     const x = o.axis === 'x'
-    const size = x ? body.offsetWidth : body.offsetHeight
+    const br = body.getBoundingClientRect()
+    const size = x ? br.width : br.height
     box.style[x ? 'width' : 'height'] = `${size}px`
     line.style[x ? 'right' : 'bottom'] = `${size / 2 - 1}px`
     const lr = line.getBoundingClientRect()
@@ -115,7 +131,7 @@ export function useFold(o: FoldOptions) {
 
     if (closing) {
       anims.push(
-        body.animate(glitch(true), { duration: 170, easing: 'steps(6, end)', fill: 'both' }),
+        body.animate(glitch(true), { duration: 170, easing: GLITCH_STEPS, fill: 'both' }),
         box.animate(
           [
             { opacity: 0, transform: 'none' },
@@ -178,7 +194,7 @@ export function useFold(o: FoldOptions) {
           ],
           timeline,
         ),
-        body.animate(glitch(false), { duration: 180, delay: 360, easing: 'steps(6, end)', fill: 'both' }),
+        body.animate(glitch(false), { duration: 180, delay: 360, easing: GLITCH_STEPS, fill: 'both' }),
       )
       scramble(tag, o.label(), false, 150, 360, alive)
     }
@@ -210,22 +226,24 @@ export function useFold(o: FoldOptions) {
     phase.value = closing ? 'closing' : 'opening'
     await nextTick()
     const anims = run(root, closing, lay, id)
+    running = anims
     await settle(anims)
+    running = []
     phase.value = end
-    // 终态的 CSS 生效后再撤掉 fill，中间不留一帧空档
+    // 终态的 CSS 生效后再撤掉 fill，中间不留一帧空档。
+    // 离场中的详情页（或已被替换的评论栏）不会再被 Vue 更新，停在中间阶段的类上，保留 fill 才不会弹回去
     await nextTick()
+    if (!root.matches(closing ? '.closed' : ':not(.off)')) return
     anims.forEach((a) => a.cancel())
-    layoutAnim = null
     const tag = root.querySelector('.np-fold-tag')
     if (tag) tag.textContent = ''
     if (refocus) focusEnd(root, closing)
   }
 
-  /** 尺寸过渡的目标容器被换掉（例如评论栏消失）时，px 关键帧不能再压在新布局上 */
-  function stopLayout() {
-    layoutAnim?.cancel()
-    layoutAnim = null
+  /** 面板容器被换掉（例如评论栏消失）时立即结束本轮：px 关键帧不能再压在新布局上，新容器也要直接落到终态 */
+  function stop() {
+    running.forEach((a) => a.cancel())
   }
 
-  return { phase, toggle, stopLayout }
+  return { phase, toggle, stop }
 }

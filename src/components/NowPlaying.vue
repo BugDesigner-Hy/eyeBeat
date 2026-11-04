@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { provider } from '../api'
-import { useFold } from '../composables/useFold'
+import { FOLD_ANIM, useFold } from '../composables/useFold'
 import { useMobile } from '../composables/useMobile'
 import { useWide } from '../composables/useWide'
 import { useCommentsStore } from '../stores/comments'
@@ -56,7 +56,7 @@ const px = (v: number[]) => v.map((n) => `${n}px`).join(' ')
 const {
   phase: cmtPhase,
   toggle: toggleCmt,
-  stopLayout: stopCmtLayout,
+  stop: stopCmtFold,
 } = useFold({
   axis: 'x',
   root: () => cmtCol.value,
@@ -71,13 +71,14 @@ const {
     const from = getComputedStyle(el).gridTemplateColumns.split(' ').map(parseFloat)
     if (from.length !== 5 || from.some(Number.isNaN)) return null
     const [left, gap, mid, gap2, cmt] = from
-    const w = body.offsetWidth
+    const w = body.getBoundingClientRect().width
     const to = closing ? [left, gap, mid + gap2 + cmt, 0, 0] : [left, gap, mid - gap - w, gap, w]
     return { el, keyframes: [{ gridTemplateColumns: px(from) }, { gridTemplateColumns: px(to) }] }
   },
 })
+// 关闭详情页时 present 也会变假，那时离场中的 DOM 要靠折叠动画的 fill 撑住，不能停
 watch([wide, () => comments.present], ([w, has]) => {
-  if (!w || !has) stopCmtLayout()
+  if ((!w || !has) && ui.detailOpen) stopCmtFold()
 })
 
 const { phase: lowerPhase, toggle: toggleLower } = useFold({
@@ -91,8 +92,8 @@ const { phase: lowerPhase, toggle: toggleLower } = useFold({
     const body = el?.querySelector<HTMLElement>('[data-fold-body]')
     const dock = el?.querySelector<HTMLElement>('[data-fold-dock]')
     if (!el || !body || !dock) return null
-    const to = closing ? dock.offsetHeight : body.offsetHeight
-    return { el, keyframes: [{ height: `${el.offsetHeight}px` }, { height: `${to}px` }] }
+    const to = (closing ? dock : body).getBoundingClientRect().height
+    return { el, keyframes: [{ height: `${el.getBoundingClientRect().height}px` }, { height: `${to}px` }] }
   },
 })
 
@@ -380,7 +381,7 @@ function onLeave(el: Element, done: () => void) {
   const ghostAt = getComputedStyle(p.ghost).visibility === 'visible' ? p.ghost.getBoundingClientRect() : null
   // 打开的 WAAPI 动画会与关闭动画抢同一属性；CSS 入场动画保留，否则未显现的块会闪现
   el.getAnimations({ subtree: true }).forEach((a) => {
-    if (!(a instanceof CSSAnimation) && !(a instanceof CSSTransition)) a.cancel()
+    if (!(a instanceof CSSAnimation) && !(a instanceof CSSTransition) && a.id !== FOLD_ANIM) a.cancel()
   })
   p.mosaic.style.opacity = ''
   p.ghost.style.visibility = 'hidden'
