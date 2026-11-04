@@ -28,7 +28,21 @@ const lyrics = useLyricsStore()
 const comments = useCommentsStore()
 const wide = useWide()
 const drawerOpen = computed(() => !mobile.value && !wide.value && ui.commentsOpen && comments.present)
-watch([() => player.current, wide, mobile], () => ui.toggleComments(false))
+// present 变假时抽屉已看不见，不收回的话 Esc 会白按一次
+watch([() => player.current, wide, mobile, () => comments.present], () => ui.toggleComments(false))
+const drawer = ref<HTMLElement>()
+const cmtBtn = ref<HTMLElement>()
+watch(
+  drawerOpen,
+  (open) => {
+    if (open) return drawer.value?.focus({ preventScroll: true })
+    if (!ui.detailOpen) return
+    // 收起时焦点若还在离场中的抽屉里（或已丢到 body），交还给 [CMT] 按钮
+    const el = document.activeElement
+    if (!el || el === document.body || el.closest('.np-drawer')) cmtBtn.value?.focus({ preventScroll: true })
+  },
+  { flush: 'post' },
+)
 
 const PAGES = ['PLAY', 'LRC', 'INFO'] as const
 /** 连续的页位置 0–2，驱动页码下划线跟手移动 */
@@ -384,10 +398,12 @@ function onLeave(el: Element, done: () => void) {
             <span v-else class="np-tag">// NOW PLAYING · {{ player.providerName.toUpperCase() }}</span>
             <button
               v-if="!mobile && !wide && comments.present"
+              ref="cmtBtn"
               type="button"
               class="txt-btn np-cmt-btn"
-              :class="{ on: ui.commentsOpen }"
-              :aria-expanded="ui.commentsOpen"
+              :class="{ on: drawerOpen }"
+              :aria-expanded="drawerOpen"
+              aria-controls="np-drawer"
               title="评论（Esc 收回）"
               @click="ui.toggleComments()"
             >
@@ -450,14 +466,14 @@ function onLeave(el: Element, done: () => void) {
           </div>
 
           <template v-else>
-            <div class="np-left">
+            <div class="np-left" :inert="drawerOpen">
               <div class="np-cover">
                 <CoverImage :sources="coverSources(player.current.cover, 'large')" />
                 <i class="np-corners" aria-hidden="true" />
               </div>
               <DetailInfo :track="player.current" />
             </div>
-            <div class="np-right">
+            <div class="np-right" :inert="drawerOpen">
               <DetailLyrics />
               <div class="np-lower">
                 <UpNext />
@@ -474,7 +490,7 @@ function onLeave(el: Element, done: () => void) {
           <div v-if="drawerOpen" class="np-scrim" data-no-drag aria-hidden="true" @click="ui.toggleComments(false)" />
         </Transition>
         <Transition name="np-drawer">
-          <aside v-if="drawerOpen" class="np-drawer" aria-label="评论" data-no-drag>
+          <aside v-if="drawerOpen" id="np-drawer" ref="drawer" class="np-drawer" tabindex="-1" aria-label="评论" data-no-drag>
             <DetailComments class="np-drawer-body" />
           </aside>
         </Transition>
@@ -648,6 +664,7 @@ function onLeave(el: Element, done: () => void) {
   background: rgba(8, 10, 13, 0.97);
   border-left: 1px solid var(--line-strong);
   box-shadow: -24px 0 48px rgba(0, 0, 0, 0.5);
+  outline: none;
 }
 
 .np-drawer-body {
