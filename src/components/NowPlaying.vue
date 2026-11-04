@@ -6,7 +6,6 @@ import { useMobile } from '../composables/useMobile'
 import { useMobileDetail } from '../composables/useMobileDetail'
 import { useWide } from '../composables/useWide'
 import { useCommentsStore } from '../stores/comments'
-import { useLyricsStore } from '../stores/lyrics'
 import { MODE_LABEL, MODE_TITLE, usePlayerStore } from '../stores/player'
 import { useSettingsStore } from '../stores/settings'
 import { useUiStore } from '../stores/ui'
@@ -14,8 +13,8 @@ import { coverSources, markCoverFailed, usableCovers } from '../utils/cover'
 import { fmtNum } from '../utils/num'
 import { fmtTime } from '../utils/time'
 import CoverFallback from './CoverFallback.vue'
-import CoverImage from './CoverImage.vue'
 import DetailComments from './DetailComments.vue'
+import VinylCover from './VinylCover.vue'
 import DetailInfo from './DetailInfo.vue'
 import DetailLyrics from './DetailLyrics.vue'
 import DetailTelemetry from './DetailTelemetry.vue'
@@ -27,7 +26,6 @@ import UpNext from './UpNext.vue'
 const player = usePlayerStore()
 const ui = useUiStore()
 const mobile = useMobile()
-const lyrics = useLyricsStore()
 const comments = useCommentsStore()
 const wide = useWide()
 const drawerOpen = computed(() => !mobile.value && !wide.value && ui.commentsOpen && comments.present)
@@ -98,9 +96,19 @@ const { phase: lowerPhase, toggle: toggleLower } = useFold({
   },
 })
 
-const PAGES = ['PLAY', 'LRC', 'CMT'] as const
-/** 没有评论时隐藏 CMT 标签 */
-const pages = computed(() => (comments.present ? PAGES : PAGES.slice(0, 2)))
+/** 手势空间：评论在左、PLAY 居中、歌词在右；无评论时隐藏 CMT */
+const tabs = computed(() =>
+  comments.present
+    ? ([
+        { id: 'cmt' as const, label: 'CMT' },
+        { id: 'play' as const, label: 'PLAY' },
+        { id: 'lrc' as const, label: 'LRC' },
+      ] as const)
+    : ([
+        { id: 'play' as const, label: 'PLAY' },
+        { id: 'lrc' as const, label: 'LRC' },
+      ] as const),
+)
 const lyricsPane = ref<HTMLElement>()
 const hasComments = computed(() => comments.present)
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -122,7 +130,9 @@ const {
   reduceMotion,
 })
 
+/** 与 ui.detailPage 对齐：0 play / 1 lrc / 2 cmt（语义，不是 Tab 视觉下标） */
 const page = computed(() => (mView.value === 'cmt' ? 2 : mView.value === 'lrc' ? 1 : 0))
+const tabOn = computed(() => tabs.value.findIndex((t) => t.id === mView.value))
 watch(() => comments.present, () => ensureComments())
 watch(mobile, (m) => {
   if (m) resetMobileView('play')
@@ -142,13 +152,16 @@ function goPage(i: number) {
   goView(i >= 2 ? 'cmt' : i === 1 ? 'lrc' : 'play')
 }
 
-/** 封面缩放进度交给 CSS 变量，避免每帧拼 clamp 字符串 */
-const coverStyle = computed(() => ({ '--cover-t': String(lrcP.value) }))
+/** 点 COMMENTS 统计：手机进评论层；宽屏展开评论栏；窄屏开抽屉 */
+function openComments() {
+  if (!comments.present) return
+  if (mobile.value) goView('cmt')
+  else if (wide.value) {
+    if (settings.detailCmtCollapsed) toggleCmt()
+  } else ui.toggleComments(true)
+}
 
 const progress = computed(() => (player.duration ? player.currentTime / player.duration : 0))
-const currentLine = computed(() =>
-  lyrics.lyrics?.synced ? (lyrics.lines[lyrics.activeLine]?.text ?? '') : '',
-)
 
 const DRAG_CLOSE = 120
 const DRAG_SLOP = 6
@@ -231,12 +244,6 @@ const EASE_OUT = 'cubic-bezier(0.16, 1, 0.3, 1)'
 const EASE_IN = 'cubic-bezier(0.7, 0, 0.84, 0)'
 const FLY_OUT = 'cubic-bezier(0.2, 0.8, 0.2, 1)'
 const FLY_BACK = 'cubic-bezier(0.6, 0, 0.8, 0.2)'
-/** 飞行途中依次提高马赛克分辨率：[边长, 开始时刻 ms] */
-const MOSAIC_STEPS: [number, number][] = [
-  [6, 0],
-  [12, 180],
-  [24, 340],
-]
 /** 大图迟迟不到时不再等，直接撤掉替身 */
 const LAND_WAIT = 400
 
@@ -251,7 +258,6 @@ function parts(el: Element) {
     cover: q<HTMLElement>('.np-cover'),
     scan: q<HTMLElement>('.np-scan'),
     ghost: q<HTMLElement>('.np-ghost'),
-    mosaic: q<HTMLCanvasElement>('.np-mosaic'),
   }
 }
 
@@ -278,29 +284,6 @@ const flipFrom = (from: DOMRect, to: DOMRect) =>
 /** 每次 enter/leave 自增；迟到的回调发现代数已变就不再碰 ui 和共享元素 */
 let generation = 0
 
-async function runMosaic(canvas: HTMLCanvasElement, src: string, gen: number) {
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-  const img = new Image()
-  img.src = src
-  try {
-    await img.decode()
-  } catch {
-    return
-  }
-  if (gen !== generation) return
-  canvas.style.opacity = '1'
-  for (const [size, at] of MOSAIC_STEPS) {
-    setTimeout(() => {
-      if (gen !== generation) return
-      canvas.width = size
-      canvas.height = size
-      ctx.drawImage(img, 0, 0, size, size)
-    }, at)
-  }
-  canvas.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, delay: 480, fill: 'forwards' })
-}
-
 /** 淡入不保留终态，否则会一直压住拖拽时的内联 opacity */
 function fade(el: HTMLElement, from: number, to: number, fill: FillMode) {
   return el.animate([{ opacity: from }, { opacity: to }], { duration: 200, fill })
@@ -311,7 +294,7 @@ function onEnter(el: Element, done: () => void) {
   const p = parts(el)
   dragY.value = 0
   if (mobile.value) {
-    const start = Math.min(ui.detailPage, pages.value.length - 1)
+    const start = Math.min(ui.detailPage, comments.present ? 2 : 1)
     resetMobileView(start >= 2 ? 'cmt' : start === 1 ? 'lrc' : 'play')
   }
   ui.coverLifted = true
@@ -336,7 +319,6 @@ function onEnter(el: Element, done: () => void) {
   if (from) {
     placeGhost(p.ghost, to)
     p.cover.style.opacity = '0'
-    if (ghostSrc.value) void runMosaic(p.mosaic, ghostSrc.value, gen)
     const fly = p.ghost.animate([{ transform: flipFrom(from, to) }, { transform: 'none' }], {
       duration: 620,
       easing: FLY_OUT,
@@ -374,7 +356,6 @@ function onLeave(el: Element, done: () => void) {
   el.getAnimations({ subtree: true }).forEach((a) => {
     if (!(a instanceof CSSAnimation) && !(a instanceof CSSTransition) && a.id !== FOLD_ANIM) a.cancel()
   })
-  p.mosaic.style.opacity = ''
   p.ghost.style.visibility = 'hidden'
   const finish = () => {
     if (gen === generation) ui.coverLifted = false
@@ -445,17 +426,17 @@ function onLeave(el: Element, done: () => void) {
         >
           <header class="np-head np-in" style="--i: 0">
             <button type="button" class="txt-btn" title="关闭（Esc）" @click="ui.toggleDetail(false)">[CLOSE]</button>
-            <nav v-if="mobile" class="np-dots" :style="{ '--p': pos }" aria-label="详情视图">
+            <nav v-if="mobile" class="np-dots" :style="{ '--p': pos, '--n': tabs.length }" aria-label="详情视图">
               <button
-                v-for="(label, i) in pages"
-                :key="label"
+                v-for="(tab, i) in tabs"
+                :key="tab.id"
                 type="button"
                 class="np-dot"
-                :class="{ on: page === i }"
-                :aria-current="page === i ? 'true' : undefined"
-                @click="goPage(i)"
+                :class="{ on: tabOn === i }"
+                :aria-current="tabOn === i ? 'true' : undefined"
+                @click="goView(tab.id)"
               >
-                {{ String(i + 1).padStart(2, '0') }} {{ label }}
+                {{ String(i + 1).padStart(2, '0') }} {{ tab.label }}
               </button>
               <i class="np-dots-bar" aria-hidden="true" />
             </nav>
@@ -478,7 +459,7 @@ function onLeave(el: Element, done: () => void) {
           <div
             v-if="mobile"
             class="np-layers"
-            :class="{ dragging: layerDragging }"
+            :class="{ dragging: layerDragging, 'np-lrc-on': lrcP > 0.85 }"
             :style="{ '--lrc': lrcP, '--cmt': cmtP }"
             @pointerdown="onLayerDown"
             @pointermove="onLayerMove"
@@ -490,22 +471,41 @@ function onLeave(el: Element, done: () => void) {
               data-page="play"
               :inert="cmtP > 0.85"
               :style="{
-                transform: `translateX(calc(var(--cmt) * 24%))`,
-                opacity: String(1 - cmtP * 0.45),
-                filter: lrcP > 0.15 ? `blur(${lrcP * 1.2}px)` : undefined,
+                transform: `translateX(calc(var(--cmt) * 100%))`,
+                opacity: String(1 - cmtP),
               }"
             >
-              <div class="np-cover" :style="coverStyle">
-                <CoverImage :sources="coverSources(player.current.cover, 'large')" />
-                <i class="np-corners" aria-hidden="true" />
+              <div class="np-stage-top">
+                <div class="np-cover">
+                  <VinylCover
+                    :sources="coverSources(player.current.cover, 'large')"
+                    :playing="player.isPlaying"
+                    :analyser="player.analyser"
+                  />
+                  <i class="np-corners" aria-hidden="true" />
+                </div>
+                <div class="np-play-meta">
+                  <DetailInfo :track="player.current" part="brief" @open-comments="openComments" />
+                </div>
               </div>
-              <div class="np-play-meta" :style="{ opacity: String(1 - lrcP) }">
-                <DetailInfo :track="player.current" part="brief" />
+
+              <div ref="lyricsPane" class="np-lrc-slot" data-page="lrc">
+                <i class="np-scan-edge" aria-hidden="true" />
+                <DetailLyrics>
+                  <template #head>
+                    <button
+                      type="button"
+                      class="txt-btn"
+                      title="回到封面（右滑）"
+                      :tabindex="lrcP > 0.45 ? 0 : -1"
+                      @click="goPage(0)"
+                    >
+                      [→ PLAY]
+                    </button>
+                  </template>
+                </DetailLyrics>
               </div>
-              <div class="np-mini-meta" :style="{ opacity: String(lrcP) }" aria-hidden="true">
-                <p class="np-mini-title">{{ player.current.title }}</p>
-                <p class="np-mini-artist">{{ player.current.artist }}</p>
-              </div>
+
               <div class="np-dock-ctrl">
                 <div class="np-seek np-in" style="--i: 4">
                   <span>{{ fmtTime(player.currentTime) }}</span>
@@ -540,34 +540,7 @@ function onLeave(el: Element, done: () => void) {
                   </button>
                   <button type="button" class="txt-btn" title="歌词" @click="goPage(1)">[LRC]</button>
                 </div>
-                <button
-                  v-if="currentLine && lrcP < 0.2"
-                  type="button"
-                  class="np-peek np-in"
-                  style="--i: 6"
-                  @click="goPage(1)"
-                >
-                  {{ currentLine }}
-                </button>
               </div>
-            </section>
-
-            <section
-              ref="lyricsPane"
-              class="np-layer np-lrc-layer"
-              data-page="lrc"
-              data-no-drag
-              :inert="lrcP < 0.5"
-              :style="{
-                transform: `translateY(calc((1 - var(--lrc)) * 18%))`,
-                opacity: String(lrcP),
-              }"
-            >
-              <div class="np-lrc-bar">
-                <button type="button" class="txt-btn" title="回到封面" @click="goPage(0)">[↓ PLAY]</button>
-                <i class="np-scan-edge" aria-hidden="true" />
-              </div>
-              <DetailLyrics />
             </section>
 
             <section
@@ -578,23 +551,29 @@ function onLeave(el: Element, done: () => void) {
               :inert="cmtP < 0.5"
               :style="{
                 transform: `translateX(calc((var(--cmt) - 1) * 100%))`,
+                opacity: String(cmtP),
               }"
             >
-              <div class="np-cmt-bar">
-                <button type="button" class="txt-btn" title="回到封面" @click="goPage(0)">[← PLAY]</button>
-                <i class="np-scan-edge vert" aria-hidden="true" />
-              </div>
-              <DetailComments embedded />
+              <i class="np-scan-edge vert" aria-hidden="true" />
+              <DetailComments embedded>
+                <template #head>
+                  <button type="button" class="txt-btn" title="回到封面（左滑）" @click="goPage(0)">[← PLAY]</button>
+                </template>
+              </DetailComments>
             </section>
           </div>
 
           <template v-else>
             <div class="np-left" :inert="drawerOpen">
               <div class="np-cover">
-                <CoverImage :sources="coverSources(player.current.cover, 'large')" />
+                <VinylCover
+                  :sources="coverSources(player.current.cover, 'large')"
+                  :playing="player.isPlaying"
+                  :analyser="player.analyser"
+                />
                 <i class="np-corners" aria-hidden="true" />
               </div>
-              <DetailInfo :track="player.current" />
+              <DetailInfo :track="player.current" @open-comments="openComments" />
             </div>
             <div class="np-right" :inert="drawerOpen">
               <DetailLyrics />
@@ -695,7 +674,7 @@ function onLeave(el: Element, done: () => void) {
         </Transition>
       </section>
       <i class="np-scan" aria-hidden="true" />
-      <div class="np-ghost" aria-hidden="true">
+      <div class="np-ghost" :class="{ vinyl: settings.coverVinyl }" aria-hidden="true">
         <img
           v-if="ghostSrc"
           :src="ghostSrc"
@@ -705,7 +684,6 @@ function onLeave(el: Element, done: () => void) {
           @error="onGhostError"
         />
         <CoverFallback v-else class="np-ghost-fb" />
-        <canvas class="np-mosaic" width="6" height="6" />
       </div>
     </div>
   </Transition>
@@ -812,6 +790,10 @@ function onLeave(el: Element, done: () => void) {
     linear-gradient(var(--c) 0 0) 100% 100% / 14px 2px,
     linear-gradient(var(--c) 0 0) 100% 100% / 2px 14px;
   background-repeat: no-repeat;
+}
+
+.np-cover:has(.vc.vinyl) .np-corners {
+  display: none;
 }
 
 .np-right {
@@ -1106,18 +1088,17 @@ function onLeave(el: Element, done: () => void) {
   transform-origin: 0 0;
 }
 
-.np-ghost img,
-.np-mosaic {
+.np-ghost.vinyl {
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.np-ghost img {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-.np-mosaic {
-  opacity: 0;
-  image-rendering: pixelated;
 }
 
 .np-ghost-fb {
@@ -1228,11 +1209,24 @@ function onLeave(el: Element, done: () => void) {
   inset: 0;
   display: flex;
   flex-direction: column;
-  justify-content: safe center;
-  gap: 14px;
+  gap: 0;
   padding: 8px 20px 20px;
   /* 纵向：关闭交给外壳；横向/上滑由 layer 手势接管 */
   touch-action: pan-y;
+}
+
+/* 封面 + 信息：上滑时收起，把空间让给歌词 */
+.np-stage-top {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  max-height: calc((1 - var(--lrc, 0)) * 70vh);
+  opacity: calc(1 - var(--lrc, 0));
+  overflow: hidden;
+  transform: translateY(calc(var(--lrc, 0) * -12%));
+  pointer-events: none;
 }
 
 .np-play-layer .np-cover {
@@ -1241,9 +1235,8 @@ function onLeave(el: Element, done: () => void) {
   align-self: center;
   width: clamp(160px, calc(100dvh - 440px), min(82vw, 46dvh));
   margin: 4px 0 6px;
-  transform-origin: 50% 0%;
-  transform: translate(calc(-32% * var(--cover-t, 0)), calc(-4vh * var(--cover-t, 0)))
-    scale(calc(1 - var(--cover-t, 0) * 0.72));
+  transform: scale(calc(1 - var(--lrc, 0) * 0.2));
+  transform-origin: 50% 0;
 }
 
 .np-play-meta {
@@ -1251,64 +1244,66 @@ function onLeave(el: Element, done: () => void) {
   z-index: 1;
 }
 
-.np-mini-meta {
-  position: absolute;
-  top: 12px;
-  left: 76px;
-  right: 20px;
-  pointer-events: none;
-  z-index: 3;
+.np-stage-top .np-cover,
+.np-stage-top .np-play-meta {
+  pointer-events: auto;
 }
 
-.np-mini-title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.np-mini-artist {
-  margin: 2px 0 0;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--text-dim);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.np-dock-ctrl {
-  margin-top: auto;
-}
-
-.np-lrc-layer {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 72px;
-  bottom: 132px;
+/* 歌词夹在封面与播放器之间；上滑时撑满 */
+.np-lrc-slot {
+  position: relative;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 0 12px;
-  pointer-events: auto;
-  touch-action: pan-y;
+  margin: 0 -8px;
+  padding: 0 8px;
+  transform: translateY(calc((1 - var(--lrc, 0)) * 8px));
 }
 
-.np-lrc-layer :deep(.dl) {
+.np-lrc-slot :deep(.dl) {
   flex: 1;
   min-height: 0;
 }
 
-.np-lrc-bar,
-.np-cmt-bar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
+.np-lrc-slot :deep(.dl-head) {
+  opacity: var(--lrc, 0);
+  max-height: calc(var(--lrc, 0) * 36px);
+  margin-bottom: calc(var(--lrc, 0) * 4px);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.np-lrc-slot :deep(.dl-head .txt-btn) {
+  pointer-events: auto;
+  margin-bottom: 0;
+}
+
+.np-lrc-slot :deep(.dl-head .np-label) {
+  margin-bottom: 0;
+}
+
+.np-lrc-slot :deep(.dl-box) {
+  min-height: 0;
+}
+
+/* 播放器：上滑时整体下移退出 */
+.np-dock-ctrl {
   flex: none;
-  min-height: 36px;
-  padding: 0 4px;
+  margin-top: 8px;
+  transform: translateY(calc(var(--lrc, 0) * 110%));
+  opacity: calc(1 - var(--lrc, 0));
+  pointer-events: none;
+}
+
+.np-dock-ctrl > * {
+  pointer-events: auto;
+}
+
+.np-layers.np-lrc-on .np-dock-ctrl > *,
+.np-layers.np-lrc-on .np-stage-top .np-cover,
+.np-layers.np-lrc-on .np-stage-top .np-play-meta {
+  pointer-events: none;
 }
 
 .np-scan-edge {
@@ -1321,6 +1316,7 @@ function onLeave(el: Element, done: () => void) {
   opacity: calc(var(--lrc, 0) * (1 - var(--lrc, 0)) * 4);
   box-shadow: 0 0 10px var(--accent);
   pointer-events: none;
+  z-index: 2;
 }
 
 .np-scan-edge.vert {
@@ -1392,20 +1388,6 @@ function onLeave(el: Element, done: () => void) {
   border: 0;
   background: var(--accent);
   color: var(--bg);
-  cursor: pointer;
-}
-
-.np-peek {
-  padding: 6px 0;
-  border: 0;
-  background: none;
-  font-family: var(--font-sans);
-  font-size: 14px;
-  color: var(--text-dim);
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   cursor: pointer;
 }
 

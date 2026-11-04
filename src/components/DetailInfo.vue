@@ -4,8 +4,9 @@ import type { Track } from '../api/types'
 import { useDetailStore } from '../stores/detail'
 import { fmtNum } from '../utils/num'
 
-/** brief：手机第 1 页用，只要歌名、标签和统计，不显示描述和加载状态 */
+/** brief：手机第 1 页用，只要歌名和统计，不显示描述和加载状态 */
 const props = withDefaults(defineProps<{ track: Track; part?: 'all' | 'brief' }>(), { part: 'all' })
+const emit = defineEmits<{ 'open-comments': [] }>()
 const store = useDetailStore()
 const info = computed(() => store.detail)
 
@@ -42,10 +43,16 @@ onBeforeUnmount(() => cancelAnimationFrame(raf))
 
 const typeSteps = computed(() => Math.max(1, Math.min(props.track.title.length, TYPE_MAX)))
 
-function fmtDuration(sec: number): string {
-  const s = Math.max(0, Math.floor(sec))
-  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
-}
+/** 只保留别处没有的元数据芯片；音源/时长/日期与顶栏、进度条重复，不展示 */
+const metaChips = computed(() => {
+  const d = info.value
+  if (!d) return [] as string[]
+  const chips: string[] = []
+  if (d.genre && d.genre !== props.track.album) chips.push(d.genre)
+  if (d.mood) chips.push(d.mood)
+  for (const t of d.tags?.slice(0, 6) ?? []) chips.push(`#${t}`)
+  return chips
+})
 </script>
 
 <template>
@@ -61,17 +68,23 @@ function fmtDuration(sec: number): string {
       </template>
     </p>
     <p v-if="info?.aliases?.length" class="di-alias np-in" style="--i: 3">{{ info.aliases.join(' / ') }}</p>
-    <ul class="di-tags np-in" style="--i: 3">
-      <li>{{ track.provider.toUpperCase() }}</li>
-      <li>{{ fmtDuration(track.duration) }}</li>
-      <li v-if="info?.released">{{ info.released }}</li>
-      <li v-if="info?.genre && info.genre !== track.album">{{ info.genre }}</li>
-      <li v-if="info?.mood">{{ info.mood }}</li>
-      <li v-for="q in info?.quality ?? []" :key="q" class="q">{{ q }}</li>
-      <li v-for="t in info?.tags?.slice(0, 6) ?? []" :key="t">#{{ t }}</li>
+    <ul v-if="metaChips.length" class="di-tags np-in" style="--i: 3">
+      <li v-for="c in metaChips" :key="c">{{ c }}</li>
     </ul>
     <dl v-if="info?.stats.length" class="di-stats">
-      <div v-for="(s, i) in info.stats" :key="s.label" class="np-in" :style="{ '--i': 4 + i }">
+      <div
+        v-for="(s, i) in info.stats"
+        :key="s.label"
+        class="np-in"
+        :class="{ link: s.label === 'COMMENTS' }"
+        :style="{ '--i': 4 + i }"
+        :role="s.label === 'COMMENTS' ? 'button' : undefined"
+        :tabindex="s.label === 'COMMENTS' ? 0 : undefined"
+        :title="s.label === 'COMMENTS' ? '查看评论' : undefined"
+        @click="s.label === 'COMMENTS' && emit('open-comments')"
+        @keydown.enter.prevent="s.label === 'COMMENTS' && emit('open-comments')"
+        @keydown.space.prevent="s.label === 'COMMENTS' && emit('open-comments')"
+      >
         <dt>{{ s.label }}</dt>
         <dd>{{ fmtNum(shown[i] ?? 0) }}</dd>
       </div>
@@ -160,16 +173,28 @@ function fmtDuration(sec: number): string {
   color: var(--text-dim);
 }
 
-.di-tags li.q {
-  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
-  color: var(--accent);
-}
-
 .di-stats {
   display: flex;
   flex-wrap: wrap;
   gap: 12px 28px;
   margin: 0 0 16px;
+}
+
+.di-stats > div.link {
+  cursor: pointer;
+  border-radius: 2px;
+  outline: none;
+}
+
+.di-stats > div.link:hover dd,
+.di-stats > div.link:focus-visible dd {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.di-stats > div.link:focus-visible {
+  outline: 1px dashed var(--accent);
+  outline-offset: 4px;
 }
 
 .di-stats dt {

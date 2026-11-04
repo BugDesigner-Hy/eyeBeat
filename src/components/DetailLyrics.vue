@@ -45,8 +45,12 @@ function seekTo(time: number) {
 </script>
 
 <template>
-  <section class="dl np-in" style="--i: 2" data-no-drag>
-    <p class="np-label">// LYRICS</p>
+  <!-- 手机 play↔歌词跟手需要从歌词区起势；桌面保留 data-no-drag 以免拖歌词误关详情 -->
+  <section class="dl np-in" style="--i: 2" :data-no-drag="mobile ? undefined : true">
+    <div class="dl-head">
+      <p class="np-label">// LYRICS</p>
+      <slot name="head" />
+    </div>
     <div ref="box" class="dl-box">
       <p v-if="lyrics.loading" class="dl-state">SCANNING<i class="dots" /></p>
       <p v-else-if="!lyrics.lines.length" class="dl-state">NO LYRICS</p>
@@ -73,6 +77,24 @@ function seekTo(time: number) {
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+.dl-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex: none;
+  min-width: 0;
+}
+
+.dl-head .np-label {
+  margin-bottom: 12px;
+}
+
+.dl-head :deep(.txt-btn) {
+  flex: none;
+  margin-bottom: 12px;
 }
 
 .dl-box {

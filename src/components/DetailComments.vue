@@ -46,9 +46,12 @@ watch([thread, () => thread.value?.loading], () => nextTick(rearm))
 
 <template>
   <section class="cm" :class="{ embedded }" data-no-drag>
-    <p class="cm-head np-label np-in" style="--i: 1">
-      // COMMENTS<b v-if="store.total != null" class="cm-total">{{ fmtNum(store.total) }}</b>
-    </p>
+    <div class="cm-head np-in" style="--i: 1">
+      <p class="np-label">
+        // COMMENTS<b v-if="store.total != null" class="cm-total">{{ fmtNum(store.total) }}</b>
+      </p>
+      <slot name="head" />
+    </div>
     <div ref="scroller" class="cm-scroll">
       <template v-if="thread?.hot.length">
         <p class="cm-sec np-in" style="--i: 2">HOT</p>
@@ -96,7 +99,21 @@ watch([thread, () => thread.value?.loading], () => nextTick(rearm))
 .cm-head {
   display: flex;
   align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cm-head .np-label {
+  display: flex;
+  align-items: baseline;
   gap: 10px;
+  min-width: 0;
+}
+
+.cm-head :deep(.txt-btn) {
+  flex: none;
+  margin-bottom: 12px;
 }
 
 .cm-total {

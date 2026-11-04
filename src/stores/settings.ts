@@ -27,6 +27,8 @@ export interface Settings {
   detailCmtCollapsed: boolean
   /** 桌面详情页：接下来播放与数据面板折叠成底部细条 */
   detailLowerCollapsed: boolean
+  /** 详情页封面是否显示为黑胶唱片 */
+  coverVinyl: boolean
 }
 
 const KEY = 'himusic.settings'
@@ -45,6 +47,7 @@ const DEFAULTS: Settings = {
   crossfadeSec: 4,
   detailCmtCollapsed: false,
   detailLowerCollapsed: false,
+  coverVinyl: false,
 }
 
 function load(): Settings {

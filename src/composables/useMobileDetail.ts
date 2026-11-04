@@ -7,7 +7,9 @@ const SLOP = 8
 const SETTLE_MS = 380
 
 /**
- * 手机详情：上滑歌词 / 右滑评论 / 下滑关闭（关闭仍由外壳处理）。
+ * 手机详情：上滑进完整歌词 / 右滑进完整评论；
+ * 歌词页右滑（或顶部下拉）回 PLAY；评论页左滑回 PLAY。
+ * Tab 视觉顺序 CMT | PLAY | LRC（无评论时 PLAY | LRC）。
  * lrcP、cmtP 互斥，都在 0..1。
  */
 export function useMobileDetail(opts: {
@@ -26,8 +28,12 @@ export function useMobileDetail(opts: {
     return 'play'
   })
 
-  /** 页码下划线：play=0，lrc=1，cmt=2，跟手插值 */
-  const pos = computed(() => lrcP.value + cmtP.value * 2)
+  /**
+   * 下划线位置：
+   * 有评论 CMT=0 PLAY=1 LRC=2 → pos = 1 - cmtP + lrcP
+   * 无评论 PLAY=0 LRC=1 → pos = lrcP
+   */
+  const pos = computed(() => (opts.hasComments.value ? 1 - cmtP.value + lrcP.value : lrcP.value))
 
   let snapRaf = 0
   let gesture:
@@ -36,6 +42,8 @@ export function useMobileDetail(opts: {
         x0: number
         y0: number
         mode: 'undecided' | 'lrc' | 'cmt' | 'lrc-back' | 'cmt-back' | 'ignore'
+        /** lrc-back 用横滑还是竖滑跟手 */
+        axis: 'x' | 'y'
         base: number
         lastX: number
         lastY: number
@@ -63,7 +71,6 @@ export function useMobileDetail(opts: {
     const t0 = performance.now()
     const tick = (now: number) => {
       const k = Math.min(1, (now - t0) / ms)
-      // 近似 EASE：末端减速
       const e = 1 - (1 - k) ** 3
       lrcP.value = fromL + (target.lrc - fromL) * e
       cmtP.value = fromC + (target.cmt - fromC) * e
@@ -85,7 +92,6 @@ export function useMobileDetail(opts: {
     else snap({ lrc: 0, cmt: 1 })
   }
 
-  /** 无评论时若停在评论，弹回封面 */
   function ensureComments() {
     if (!opts.hasComments.value && cmtP.value > 0) go('play')
   }
@@ -101,6 +107,7 @@ export function useMobileDetail(opts: {
       x0: e.clientX,
       y0: e.clientY,
       mode: 'undecided',
+      axis: 'y',
       base: 0,
       lastX: e.clientX,
       lastY: e.clientY,
@@ -133,20 +140,27 @@ export function useMobileDetail(opts: {
       if (atPlay) {
         if (absY >= absX && dy < 0) {
           gesture.mode = 'lrc'
+          gesture.axis = 'y'
           gesture.base = lrcP.value
         } else if (absX > absY && dx > 0 && opts.hasComments.value && gesture.x0 > EDGE) {
           gesture.mode = 'cmt'
+          gesture.axis = 'x'
           gesture.base = cmtP.value
         } else {
-          // 下滑关闭等交给外壳；右缘系统返回
           gesture.mode = 'ignore'
           return
         }
       } else if (atLrc) {
         const ly = opts.lyricsEl()
         const top = !ly || ly.scrollTop <= 0
-        if (top && absY >= absX && dy > 0) {
+        // 右滑退出歌词（与 Tab「歌词在右 → 回中」一致）；顶部下拉仍可回
+        if (absX > absY && dx > 0) {
           gesture.mode = 'lrc-back'
+          gesture.axis = 'x'
+          gesture.base = lrcP.value
+        } else if (top && absY >= absX && dy > 0) {
+          gesture.mode = 'lrc-back'
+          gesture.axis = 'y'
           gesture.base = lrcP.value
         } else {
           gesture.mode = 'ignore'
@@ -155,18 +169,20 @@ export function useMobileDetail(opts: {
       } else if (atCmt) {
         if (absX > absY && dx < 0) {
           gesture.mode = 'cmt-back'
+          gesture.axis = 'x'
           gesture.base = cmtP.value
         } else {
           gesture.mode = 'ignore'
           return
         }
       } else {
-        // 过渡中途：按主导轴继续
         if (lrcP.value > cmtP.value) {
-          gesture.mode = dy > 0 ? 'lrc-back' : 'lrc'
+          gesture.mode = dy > 0 || dx > 0 ? 'lrc-back' : 'lrc'
+          gesture.axis = absX > absY ? 'x' : 'y'
           gesture.base = lrcP.value
         } else {
           gesture.mode = dx < 0 ? 'cmt-back' : 'cmt'
+          gesture.axis = 'x'
           gesture.base = cmtP.value
         }
       }
@@ -186,7 +202,11 @@ export function useMobileDetail(opts: {
       lrcP.value = Math.min(1, Math.max(0, gesture.base + -dy / (h * 0.55)))
     } else if (gesture.mode === 'lrc-back') {
       cmtP.value = 0
-      lrcP.value = Math.min(1, Math.max(0, gesture.base - dy / (h * 0.55)))
+      if (gesture.axis === 'x') {
+        lrcP.value = Math.min(1, Math.max(0, gesture.base - dx / (w * 0.55)))
+      } else {
+        lrcP.value = Math.min(1, Math.max(0, gesture.base - dy / (h * 0.55)))
+      }
     } else if (gesture.mode === 'cmt') {
       lrcP.value = 0
       cmtP.value = Math.min(1, Math.max(0, gesture.base + dx / (w * 0.55)))
@@ -199,14 +219,17 @@ export function useMobileDetail(opts: {
   function onPointerUp(e: PointerEvent) {
     if (!gesture || e.pointerId !== gesture.id) return
     const mode = gesture.mode
+    const axis = gesture.axis
     const { vx, vy } = gesture
     gesture = null
     dragging.value = false
     if (mode === 'undecided' || mode === 'ignore') return
 
-    // px/ms：约 0.7 ≈ 快速甩
     if (mode === 'lrc' || mode === 'lrc-back') {
-      const goLrc = lrcP.value > 0.45 || (mode === 'lrc' && -vy > 0.7) || (mode === 'lrc-back' && vy < -0.7)
+      const flickOut =
+        mode === 'lrc-back' && ((axis === 'x' && vx > 0.7) || (axis === 'y' && vy > 0.7))
+      const flickIn = mode === 'lrc' && -vy > 0.7
+      const goLrc = !flickOut && (lrcP.value > 0.45 || flickIn)
       snap({ lrc: goLrc ? 1 : 0, cmt: 0 })
     } else {
       const goCmt = cmtP.value > 0.45 || (mode === 'cmt' && vx > 0.7) || (mode === 'cmt-back' && vx < -0.7)
