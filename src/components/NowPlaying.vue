@@ -8,6 +8,7 @@ import { useLyricsStore } from '../stores/lyrics'
 import { MODE_LABEL, MODE_TITLE, usePlayerStore } from '../stores/player'
 import { useUiStore } from '../stores/ui'
 import { coverSources, markCoverFailed, usableCovers } from '../utils/cover'
+import { fmtNum } from '../utils/num'
 import { fmtTime } from '../utils/time'
 import CoverFallback from './CoverFallback.vue'
 import CoverImage from './CoverImage.vue'
@@ -26,6 +27,8 @@ const mobile = useMobile()
 const lyrics = useLyricsStore()
 const comments = useCommentsStore()
 const wide = useWide()
+const drawerOpen = computed(() => !mobile.value && !wide.value && ui.commentsOpen && comments.present)
+watch([() => player.current, wide, mobile], () => ui.toggleComments(false))
 
 const PAGES = ['PLAY', 'LRC', 'INFO'] as const
 /** 连续的页位置 0–2，驱动页码下划线跟手移动 */
@@ -379,6 +382,17 @@ function onLeave(el: Element, done: () => void) {
               <i class="np-dots-bar" aria-hidden="true" />
             </nav>
             <span v-else class="np-tag">// NOW PLAYING · {{ player.providerName.toUpperCase() }}</span>
+            <button
+              v-if="!mobile && !wide && comments.present"
+              type="button"
+              class="txt-btn np-cmt-btn"
+              :class="{ on: ui.commentsOpen }"
+              :aria-expanded="ui.commentsOpen"
+              title="评论（Esc 收回）"
+              @click="ui.toggleComments()"
+            >
+              [CMT{{ comments.total != null ? ` ${fmtNum(comments.total)}` : '' }}]
+            </button>
           </header>
 
           <div v-if="mobile" class="np-pager" @scroll.passive="onPagerScroll">
@@ -456,6 +470,14 @@ function onLeave(el: Element, done: () => void) {
             </Transition>
           </template>
         </div>
+        <Transition name="np-fade">
+          <div v-if="drawerOpen" class="np-scrim" data-no-drag aria-hidden="true" @click="ui.toggleComments(false)" />
+        </Transition>
+        <Transition name="np-drawer">
+          <aside v-if="drawerOpen" class="np-drawer" aria-label="评论" data-no-drag>
+            <DetailComments class="np-drawer-body" />
+          </aside>
+        </Transition>
       </section>
       <i class="np-scan" aria-hidden="true" />
       <div class="np-ghost" aria-hidden="true">
@@ -521,10 +543,17 @@ function onLeave(el: Element, done: () => void) {
 }
 
 .np-head {
+  /* 压在评论抽屉之上，抽屉打开时 [CMT] 按钮仍可点 */
+  position: relative;
+  z-index: 3;
   grid-column: 1 / -1;
   display: flex;
   align-items: baseline;
   gap: 16px;
+}
+
+.np-cmt-btn {
+  margin-left: auto;
 }
 
 .np-tag {
@@ -597,6 +626,52 @@ function onLeave(el: Element, done: () => void) {
 .np-col-enter-from {
   opacity: 0;
   transform: translateX(48px);
+}
+
+.np-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: rgba(4, 6, 8, 0.45);
+}
+
+.np-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  width: clamp(300px, 22vw, 380px);
+  padding: 72px 24px 24px;
+  background: rgba(8, 10, 13, 0.97);
+  border-left: 1px solid var(--line-strong);
+  box-shadow: -24px 0 48px rgba(0, 0, 0, 0.5);
+}
+
+.np-drawer-body {
+  flex: 1;
+}
+
+.np-drawer-enter-active,
+.np-drawer-leave-active {
+  transition: transform 320ms var(--ease-out);
+}
+
+.np-drawer-enter-from,
+.np-drawer-leave-to {
+  transform: translateX(100%);
+}
+
+.np-fade-enter-active,
+.np-fade-leave-active {
+  transition: opacity 240ms var(--ease-out);
+}
+
+.np-fade-enter-from,
+.np-fade-leave-to {
+  opacity: 0;
 }
 
 .np-scan {

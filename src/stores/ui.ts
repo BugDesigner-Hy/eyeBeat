@@ -19,6 +19,8 @@ export const useUiStore = defineStore('ui', () => {
   /** 详情页的封面从缩略图“拎出”期间隐藏缩略图，飞回落位后才恢复 */
   const coverLifted = ref(false)
   const detailPage = ref<DetailPage>(0)
+  /** 桌面窄屏（< 1440px）详情页的评论抽屉 */
+  const commentsOpen = ref(false)
   const menuOpen = ref(false)
   const installPrompt = shallowRef<InstallPromptEvent | null>(null)
 
@@ -40,8 +42,10 @@ export const useUiStore = defineStore('ui', () => {
   const toggleFx = (v = !fxOpen.value) => (fxOpen.value = v)
   function toggleDetail(v = !detailOpen.value, page: DetailPage = 0) {
     if (v) detailPage.value = page
+    else commentsOpen.value = false
     detailOpen.value = v
   }
+  const toggleComments = (v = !commentsOpen.value) => (commentsOpen.value = v)
   const toggleMenu = (v = !menuOpen.value) => (menuOpen.value = v)
 
   /** 一段时间没有任何输入：用于进入氛围模式 */
@@ -69,6 +73,7 @@ export const useUiStore = defineStore('ui', () => {
     fxOpen,
     detailOpen,
     detailPage,
+    commentsOpen,
     menuOpen,
     coverLifted,
     barCollapsed,
@@ -79,6 +84,7 @@ export const useUiStore = defineStore('ui', () => {
     togglePalette,
     toggleFx,
     toggleDetail,
+    toggleComments,
     toggleMenu,
     toggleBar,
   }
