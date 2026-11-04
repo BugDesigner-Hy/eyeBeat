@@ -141,6 +141,7 @@ onMounted(() => input.value?.focus())
   display: flex;
   justify-content: center;
   padding-top: 14vh;
+  padding-top: round(14vh, 1px);
   background: rgba(5, 6, 8, 0.6);
 }
 
@@ -217,6 +218,8 @@ onMounted(() => input.value?.focus())
   background: none;
   color: var(--text);
   font-size: 14px;
+  /* 行高取整，否则逐行累积半像素，像素字会落在半像素上发糊 */
+  line-height: 18px;
   text-align: left;
   cursor: pointer;
 }
@@ -228,6 +231,7 @@ onMounted(() => input.value?.focus())
 
 .pal-mark {
   flex: none;
+  width: 10px;
   font-size: 10px;
   opacity: 0.8;
 }
@@ -242,7 +246,6 @@ onMounted(() => input.value?.focus())
 
 .pal-title.px-cjk {
   font-size: 12px;
-  line-height: 18px;
 }
 
 .pal-hint {
