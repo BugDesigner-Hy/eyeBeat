@@ -4,6 +4,10 @@
 
 > 仓库包名仍为 `himusic`；产品展示名为 **EyeBeat**（顶栏 `EYE/BEAT`）。
 
+在线预览：**https://bugdesigner-hy.github.io/eyeBeat/**（GitHub Pages，push 到 `main` 自动部署）
+
+[![Deploy to GitHub Pages](https://github.com/BugDesigner-Hy/eyeBeat/actions/workflows/deploy.yml/badge.svg)](https://github.com/BugDesigner-Hy/eyeBeat/actions/workflows/deploy.yml)
+
 ## 预览
 
 <p align="center">
