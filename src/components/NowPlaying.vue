@@ -2,13 +2,17 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { provider } from '../api'
 import { useMobile } from '../composables/useMobile'
+import { useWide } from '../composables/useWide'
+import { useCommentsStore } from '../stores/comments'
 import { useLyricsStore } from '../stores/lyrics'
 import { MODE_LABEL, MODE_TITLE, usePlayerStore } from '../stores/player'
 import { useUiStore } from '../stores/ui'
 import { coverSources, markCoverFailed, usableCovers } from '../utils/cover'
+import { fmtNum } from '../utils/num'
 import { fmtTime } from '../utils/time'
 import CoverFallback from './CoverFallback.vue'
 import CoverImage from './CoverImage.vue'
+import DetailComments from './DetailComments.vue'
 import DetailInfo from './DetailInfo.vue'
 import DetailLyrics from './DetailLyrics.vue'
 import DetailTelemetry from './DetailTelemetry.vue'
@@ -21,9 +25,29 @@ const player = usePlayerStore()
 const ui = useUiStore()
 const mobile = useMobile()
 const lyrics = useLyricsStore()
+const comments = useCommentsStore()
+const wide = useWide()
+const drawerOpen = computed(() => !mobile.value && !wide.value && ui.commentsOpen && comments.present)
+// present 变假时抽屉已看不见，不收回的话 Esc 会白按一次
+watch([() => player.current, wide, mobile, () => comments.present], () => ui.toggleComments(false))
+const drawer = ref<HTMLElement>()
+const cmtBtn = ref<HTMLElement>()
+watch(
+  drawerOpen,
+  (open) => {
+    if (open) return drawer.value?.focus({ preventScroll: true })
+    if (!ui.detailOpen) return
+    // 收起时焦点若还在离场中的抽屉里（或已丢到 body），交还给 [CMT] 按钮
+    const el = document.activeElement
+    if (!el || el === document.body || el.closest('.np-drawer')) cmtBtn.value?.focus({ preventScroll: true })
+  },
+  { flush: 'post' },
+)
 
-const PAGES = ['PLAY', 'LRC', 'INFO'] as const
-/** 连续的页位置 0–2，驱动页码下划线跟手移动 */
+const PAGES = ['PLAY', 'LRC', 'INFO', 'CMT'] as const
+/** 没有评论时只有前三页；评论晚到时追加在末尾，不跳页 */
+const pages = computed(() => (comments.present ? PAGES : PAGES.slice(0, 3)))
+/** 连续的页位置 0–3，驱动页码下划线跟手移动 */
 const pos = ref(0)
 const page = computed(() => Math.round(pos.value))
 /** 进入过的页才播放信息块的组装动画 */
@@ -43,6 +67,20 @@ watch(mobile, () =>
     pos.value = 0
     seen.value = [0]
   }),
+)
+
+/** 停在评论页时切到没有评论的歌：第 4 页被移除，回到信息页 */
+watch(
+  () => comments.present,
+  (has) => {
+    const el = activePager
+    // 关闭详情页也会让 present 变假，离场中的分页不能再动
+    if (has || !el || !activeRoot || page.value < 3) return
+    el.scrollLeft = 2 * el.clientWidth
+    pos.value = 2
+    if (!seen.value.includes(2)) seen.value = [...seen.value, 2]
+  },
+  { flush: 'post' },
 )
 
 function onPagerScroll(e: Event) {
@@ -223,7 +261,7 @@ function onEnter(el: Element, done: () => void) {
   const gen = ++generation
   const p = parts(el)
   dragY.value = 0
-  const start = mobile.value ? ui.detailPage : 0
+  const start = mobile.value ? Math.min(ui.detailPage, pages.value.length - 1) : 0
   pos.value = start
   seen.value = [start]
   cancelAnimationFrame(posRaf)
@@ -356,12 +394,12 @@ function onLeave(el: Element, done: () => void) {
           <CoverImage :sources="coverSources(player.current.cover, 'medium')" :fallback="false" />
         </div>
         <i class="np-grid" aria-hidden="true" />
-        <div class="np-content" :class="{ 'np-m': mobile }">
+        <div class="np-content" :class="{ 'np-m': mobile, 'np-3': wide && comments.present }">
           <header class="np-head np-in" style="--i: 0">
             <button type="button" class="txt-btn" title="关闭（Esc）" @click="ui.toggleDetail(false)">[CLOSE]</button>
             <nav v-if="mobile" class="np-dots" :style="{ '--p': pos }" aria-label="详情分页">
               <button
-                v-for="(label, i) in PAGES"
+                v-for="(label, i) in pages"
                 :key="label"
                 type="button"
                 class="np-dot"
@@ -374,6 +412,19 @@ function onLeave(el: Element, done: () => void) {
               <i class="np-dots-bar" aria-hidden="true" />
             </nav>
             <span v-else class="np-tag">// NOW PLAYING · {{ player.providerName.toUpperCase() }}</span>
+            <button
+              v-if="!mobile && !wide && comments.present"
+              ref="cmtBtn"
+              type="button"
+              class="txt-btn np-cmt-btn"
+              :class="{ on: drawerOpen }"
+              :aria-expanded="drawerOpen"
+              aria-controls="np-drawer"
+              title="评论（Esc 收回）"
+              @click="ui.toggleComments()"
+            >
+              [CMT{{ comments.total != null ? ` ${fmtNum(comments.total)}` : '' }}]
+            </button>
           </header>
 
           <div v-if="mobile" class="np-pager" @scroll.passive="onPagerScroll">
@@ -428,25 +479,45 @@ function onLeave(el: Element, done: () => void) {
               <DetailTelemetry :track="player.current" :bars="16" :rows="7" />
               <UpNext />
             </section>
+            <section
+              v-if="comments.present"
+              class="np-page np-page-scroll"
+              :class="{ seen: seen.includes(3) }"
+              data-page="cmt"
+            >
+              <DetailComments embedded />
+            </section>
           </div>
 
           <template v-else>
-            <div class="np-left">
+            <div class="np-left" :inert="drawerOpen">
               <div class="np-cover">
                 <CoverImage :sources="coverSources(player.current.cover, 'large')" />
                 <i class="np-corners" aria-hidden="true" />
               </div>
               <DetailInfo :track="player.current" />
             </div>
-            <div class="np-right">
+            <div class="np-right" :inert="drawerOpen">
               <DetailLyrics />
               <div class="np-lower">
                 <UpNext />
                 <DetailTelemetry :track="player.current" />
               </div>
             </div>
+            <!-- 只做入场：离场时栅格已变回两栏，留着会被挤到下一行 -->
+            <Transition name="np-col">
+              <DetailComments v-if="wide && comments.present" class="np-cmt" />
+            </Transition>
           </template>
         </div>
+        <Transition name="np-fade">
+          <div v-if="drawerOpen" class="np-scrim" data-no-drag aria-hidden="true" @click="ui.toggleComments(false)" />
+        </Transition>
+        <Transition name="np-drawer">
+          <aside v-if="drawerOpen" id="np-drawer" ref="drawer" class="np-drawer" tabindex="-1" aria-label="评论" data-no-drag>
+            <DetailComments class="np-drawer-body" />
+          </aside>
+        </Transition>
       </section>
       <i class="np-scan" aria-hidden="true" />
       <div class="np-ghost" aria-hidden="true">
@@ -512,10 +583,17 @@ function onLeave(el: Element, done: () => void) {
 }
 
 .np-head {
+  /* 压在评论抽屉之上，抽屉打开时 [CMT] 按钮仍可点 */
+  position: relative;
+  z-index: 3;
   grid-column: 1 / -1;
   display: flex;
   align-items: baseline;
   gap: 16px;
+}
+
+.np-cmt-btn {
+  margin-left: auto;
 }
 
 .np-tag {
@@ -569,6 +647,72 @@ function onLeave(el: Element, done: () => void) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 32px;
+}
+
+.np-content.np-3 {
+  grid-template-columns: min(44vh, 40vw) minmax(0, 1fr) clamp(300px, 22vw, 380px);
+}
+
+.np-cmt {
+  min-height: 0;
+}
+
+.np-col-enter-active {
+  transition:
+    opacity 360ms var(--ease-out),
+    transform 480ms var(--ease-out);
+}
+
+.np-col-enter-from {
+  opacity: 0;
+  transform: translateX(48px);
+}
+
+.np-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: rgba(4, 6, 8, 0.45);
+}
+
+.np-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  width: clamp(300px, 22vw, 380px);
+  padding: 72px 24px 24px;
+  background: rgba(8, 10, 13, 0.97);
+  border-left: 1px solid var(--line-strong);
+  box-shadow: -24px 0 48px rgba(0, 0, 0, 0.5);
+  outline: none;
+}
+
+.np-drawer-body {
+  flex: 1;
+}
+
+.np-drawer-enter-active,
+.np-drawer-leave-active {
+  transition: transform 320ms var(--ease-out);
+}
+
+.np-drawer-enter-from,
+.np-drawer-leave-to {
+  transform: translateX(100%);
+}
+
+.np-fade-enter-active,
+.np-fade-leave-active {
+  transition: opacity 240ms var(--ease-out);
+}
+
+.np-fade-enter-from,
+.np-fade-leave-to {
+  opacity: 0;
 }
 
 .np-scan {
@@ -647,7 +791,7 @@ function onLeave(el: Element, done: () => void) {
   }
 }
 
-/* ---------- 手机端：三页横滑 ---------- */
+/* ---------- 手机端：分页横滑 ---------- */
 .np-content.np-m {
   display: flex;
   flex-direction: column;

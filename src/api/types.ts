@@ -39,6 +39,35 @@ export interface TrackDetail {
   stats: TrackStat[]
 }
 
+export interface TrackComment {
+  id: string
+  user: { name: string; avatar?: string }
+  content: string
+  /** 毫秒时间戳 */
+  time: number
+  /** 音乐源已给出的相对时间文案，没有时前端按 time 计算 */
+  timeLabel?: string
+  likes: number
+  location?: string
+  /** 被回复的原评论（网易云） */
+  replyTo?: { user: string; content: string }
+  /** 楼中楼的前几条回复与总回复数（Audius） */
+  replies?: TrackComment[]
+  replyCount?: number
+  /** 评论在歌曲中的时间点（秒，Audius） */
+  at?: number
+}
+
+export interface CommentPage {
+  /** 只在第一页返回 */
+  hot?: TrackComment[]
+  items: TrackComment[]
+  /** 下一页游标，null 表示没有更多 */
+  next: string | null
+  /** 第一页返回，可能缺省 */
+  total?: number
+}
+
 export interface LyricWord {
   /** 秒 */
   time: number
@@ -155,6 +184,8 @@ export interface MusicProvider {
   getStream(track: Track): Promise<StreamSource | null>
   /** 详情页的扩展元数据；不支持的音乐源不实现 */
   getDetail?(track: Track): Promise<TrackDetail>
+  /** 不传 cursor 时返回第一页（热门 + 第一页最新）；游标是各音乐源自行编码的不透明字符串 */
+  getComments?(track: Track, cursor?: string): Promise<CommentPage>
   /** 按曲目 ID 精确获取歌词的来源，会和公共歌词源一起参与择优 */
   readonly lyricsSource?: LyricsSource
   readonly account?: AccountApi

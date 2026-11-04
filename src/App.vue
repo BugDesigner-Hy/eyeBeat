@@ -91,6 +91,7 @@ function onKeydown(e: KeyboardEvent) {
     ui.toggleBar()
   } else if (e.key === 'Escape') {
     if (ui.menuOpen) ui.toggleMenu(false)
+    else if (ui.commentsOpen) ui.toggleComments(false)
     else if (ui.detailOpen) ui.toggleDetail(false)
     else ui.toggleFx(false)
   }

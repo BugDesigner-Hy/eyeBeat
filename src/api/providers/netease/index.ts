@@ -1,5 +1,5 @@
 import { parseLrc, parseYrc } from '../../../utils/lrc'
-import type { Lyrics, LyricsCandidate, LyricsSource, MusicProvider, PageOptions, Shelf, Track, TrackDetail, TrackStat } from '../../types'
+import type { Lyrics, LyricsCandidate, LyricsSource, MusicProvider, PageOptions, Shelf, Track, TrackComment, TrackDetail, TrackStat } from '../../types'
 import { currentUid, neteaseAccount } from './account'
 import { NeteaseError, ncm } from './client'
 
@@ -168,6 +168,52 @@ export const neteaseSearchLyricsSource: LyricsSource = {
   },
 }
 
+/* ---------------- 评论 ---------------- */
+
+const HOT_COMMENTS = 10
+const COMMENT_PAGE = 20
+
+interface NeteaseComment {
+  commentId: number
+  content?: string | null
+  /** 毫秒时间戳 */
+  time: number
+  timeStr?: string
+  likedCount?: number
+  ipLocation?: { location?: string } | null
+  user?: { nickname?: string; avatarUrl?: string } | null
+  beReplied?: { user?: { nickname?: string } | null; content?: string | null }[] | null
+}
+
+interface CommentRes {
+  data?: {
+    comments?: NeteaseComment[] | null
+    totalCount?: number
+    hasMore?: boolean
+    cursor?: string | number | null
+  }
+}
+
+function toComment(c: NeteaseComment): TrackComment {
+  const r = c.beReplied?.[0]
+  const avatar = c.user?.avatarUrl
+  return {
+    id: String(c.commentId),
+    user: { name: c.user?.nickname || '匿名', avatar: avatar ? `${https(avatar)}?param=32y32` : undefined },
+    content: c.content ?? '',
+    time: c.time,
+    timeLabel: c.timeStr || undefined,
+    likes: c.likedCount ?? 0,
+    location: c.ipLocation?.location || undefined,
+    replyTo: r?.user?.nickname && r.content ? { user: r.user.nickname, content: r.content } : undefined,
+  }
+}
+
+/** sortType：2 热门，3 最新 */
+function commentList(id: string, sortType: 2 | 3, pageNo: number, pageSize: number, cursor?: string) {
+  return ncm<CommentRes>('/comment/new', { type: 0, id, sortType, pageNo, pageSize, cursor })
+}
+
 /* ---------------- 音乐源 ---------------- */
 
 export const neteaseProvider: MusicProvider = {
@@ -230,6 +276,24 @@ export const neteaseProvider: MusicProvider = {
       aliases: aliases.length ? aliases : undefined,
       quality: quality.length ? quality : undefined,
       stats,
+    }
+  },
+
+  // 游标编码为 `pageNo:cursor`
+  async getComments(track, cursor) {
+    const [no = '1', cur] = cursor?.split(':') ?? []
+    const pageNo = Number(no)
+    const [hot, latest] = await Promise.all([
+      cursor ? null : commentList(track.id, 2, 1, HOT_COMMENTS).catch(() => null),
+      commentList(track.id, 3, pageNo, COMMENT_PAGE, cur),
+    ])
+    const d = latest.data
+    const items = (d?.comments ?? []).map(toComment)
+    return {
+      hot: hot ? (hot.data?.comments ?? []).map(toComment) : undefined,
+      items,
+      next: d?.hasMore && items.length && d.cursor != null ? `${pageNo + 1}:${d.cursor}` : null,
+      total: cursor ? undefined : d?.totalCount,
     }
   },
 }

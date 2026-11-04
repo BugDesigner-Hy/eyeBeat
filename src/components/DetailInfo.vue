@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { Track } from '../api/types'
 import { useDetailStore } from '../stores/detail'
+import { fmtNum } from '../utils/num'
 
 const props = withDefaults(defineProps<{ track: Track; part?: 'all' | 'head' | 'meta' }>(), { part: 'all' })
 const store = useDetailStore()
@@ -39,12 +40,6 @@ watch(
 onBeforeUnmount(() => cancelAnimationFrame(raf))
 
 const typeSteps = computed(() => Math.max(1, Math.min(props.track.title.length, TYPE_MAX)))
-
-function fmtNum(n: number): string {
-  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`
-  if (n >= 1e4) return `${(n / 1e3).toFixed(1)}K`
-  return n.toLocaleString('en-US')
-}
 
 function fmtDuration(sec: number): string {
   const s = Math.max(0, Math.floor(sec))
