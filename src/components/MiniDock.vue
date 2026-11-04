@@ -17,7 +17,7 @@ const progress = computed(() => (store.duration ? Math.min(1, store.currentTime 
   <div v-if="store.current" class="capsule" role="region" aria-label="迷你播放器">
     <i class="cap-frame" aria-hidden="true" />
     <button type="button" class="cap-cover" :title="`${store.current.title} - 歌词`" @click="ui.toggleLyrics()">
-      <span class="cap-thumb">
+      <span class="cap-thumb" data-dock-thumb>
         <CoverImage :sources="coverSources(store.current.cover, 'small')" />
       </span>
       <svg class="cap-ring" viewBox="0 0 44 44" aria-hidden="true">

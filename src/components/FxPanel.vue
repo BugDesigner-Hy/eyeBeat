@@ -133,6 +133,15 @@ function cycleCrossfade() {
       >
         [XFADE {{ settings.crossfade ? `${settings.crossfadeSec}S` : 'OFF' }}]
       </button>
+      <button
+        type="button"
+        class="txt-btn"
+        :class="{ on: settings.reticleLocate }"
+        title="切歌时准星定位到封面墙上的新歌"
+        @click="settings.reticleLocate = !settings.reticleLocate"
+      >
+        [准星 {{ settings.reticleLocate ? 'ON' : 'OFF' }}]
+      </button>
     </footer>
   </section>
 </template>
