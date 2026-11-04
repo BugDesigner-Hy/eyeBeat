@@ -51,6 +51,8 @@ function wordProgress(w: LyricWord): number {
 
 <style scoped>
 .backdrop {
+  /* 退场用两头缓：ease-in 开头太慢，鼠标动了之后像没反应 */
+  --ease-exit: cubic-bezier(0.33, 0, 0.67, 1);
   position: fixed;
   inset: 0 0 var(--dock-h);
   z-index: 20;
@@ -141,13 +143,28 @@ function wordProgress(w: LyricWord): number {
   bottom: 20px;
 }
 
-/* 进入：一道扫描光自下而上显影；退出要快，用户一动鼠标就让位 */
+/*
+ * 进入：一道扫描光自下而上显影。
+ * 退出：外圈先散（标签、上下句、翻译），当前句最后消失；总长要和 App.vue 里 Transition 的 leave 时长一致
+ */
 .ambient-enter-active {
   animation: ambient-in 900ms var(--ease-out) both;
 }
 
-.ambient-leave-active {
-  animation: ambient-out 260ms var(--ease-in) both;
+.ambient-leave-active :is(.bd-tag, .bd-counter) {
+  animation: ambient-out 300ms var(--ease-exit) both;
+}
+
+.ambient-leave-active .bd-side {
+  animation: ambient-out 320ms 80ms var(--ease-exit) both;
+}
+
+.ambient-leave-active .bd-trans {
+  animation: ambient-out 340ms 160ms var(--ease-exit) both;
+}
+
+.ambient-leave-active .bd-line {
+  animation: ambient-out-line 460ms 220ms var(--ease-exit) both;
 }
 
 @keyframes ambient-in {
@@ -168,8 +185,17 @@ function wordProgress(w: LyricWord): number {
 @keyframes ambient-out {
   to {
     opacity: 0;
-    transform: scale(1.02);
+    transform: translateY(-10px);
     filter: blur(6px);
+  }
+}
+
+/* 保留原有的辉光再叠模糊，滤镜列表前缀一致才能平滑插值 */
+@keyframes ambient-out-line {
+  to {
+    opacity: 0;
+    transform: translateY(-14px) scale(1.02);
+    filter: drop-shadow(0 0 18px color-mix(in srgb, var(--accent) 45%, transparent)) blur(8px);
   }
 }
 

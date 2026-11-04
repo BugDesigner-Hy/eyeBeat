@@ -106,7 +106,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     <CoverWall />
   </main>
 
-  <Transition name="ambient" :duration="{ enter: 900, leave: 260 }">
+  <Transition name="ambient" :duration="{ enter: 900, leave: 700 }">
     <LyricsBackdrop v-if="ambient" />
   </Transition>
 
