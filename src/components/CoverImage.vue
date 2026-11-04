@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { provider } from '../api'
+import { markCoverFailed, usableCovers } from '../utils/cover'
+import CoverFallback from './CoverFallback.vue'
 
 const props = defineProps<{
   /** 候选地址，加载失败时依次尝试 */
@@ -11,17 +13,20 @@ const props = defineProps<{
 const crossOrigin = provider.coverCors ? 'anonymous' : undefined
 
 const loaded = ref(false)
+const candidates = ref(usableCovers(props.sources))
 const sourceIndex = ref(0)
-const src = computed(() => props.sources[sourceIndex.value])
+const src = computed(() => candidates.value[sourceIndex.value])
 
 function onError() {
-  if (sourceIndex.value < props.sources.length - 1) sourceIndex.value++
+  if (src.value) markCoverFailed(src.value)
+  sourceIndex.value++
 }
 
 watch(
   () => props.sources.join('|'),
   () => {
     loaded.value = false
+    candidates.value = usableCovers(props.sources)
     sourceIndex.value = 0
   },
 )
@@ -29,7 +34,9 @@ watch(
 
 <template>
   <div class="ci" :class="{ loaded }">
+    <CoverFallback v-if="!src" />
     <img
+      v-else
       :src="src"
       :crossorigin="crossOrigin"
       alt=""
