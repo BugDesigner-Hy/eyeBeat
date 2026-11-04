@@ -64,7 +64,8 @@ export const useCommentsStore = defineStore('comments', () => {
         return
       }
       t.hot = page.hot ?? []
-      t.items = page.items
+      const hotIds = new Set(t.hot.map((c) => c.id))
+      t.items = page.items.filter((c) => !hotIds.has(c.id))
       t.next = page.next
       t.total = page.total
       t.ready = true
@@ -85,7 +86,7 @@ export const useCommentsStore = defineStore('comments', () => {
     try {
       const page = await provider.getComments(track, t.next)
       if (!isCurrent(key)) return
-      const seen = new Set(t.items.map((c) => c.id))
+      const seen = new Set([...t.hot, ...t.items].map((c) => c.id))
       t.items = [...t.items, ...page.items.filter((c) => !seen.has(c.id))]
       t.next = page.next
     } catch {
