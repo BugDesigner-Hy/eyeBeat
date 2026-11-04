@@ -298,7 +298,7 @@ function aim(prevId?: string | null) {
       window.scrollTo({ top: window.scrollY + dy, behavior: 'instant' })
       scrollEndAt = performance.now()
     }
-    return staticLock(tile, boxOf(inner.getBoundingClientRect()))
+    return staticLock(tile, inner)
   }
 
   if (Math.abs(dy) >= 1) scrollTo(window.scrollY + dy)
@@ -383,10 +383,15 @@ function fly(src: Box, target: Box, fromVisible: boolean, tile: HTMLElement, inn
     TOTAL,
   )
 
-  // 视差缩放随滚动变化，滚动结束后的真实位置要重新量
-  later(() => retarget(boxOf(inner.getBoundingClientRect()), target), MOVE + 40)
-  later(() => lockTile(tile), LOCK)
-  later(cancelAll, TOTAL)
+  // 动画要到下一帧才真正开始，计时从 ready 起算才和锁定帧对齐
+  const r = run
+  void moving[0].anim.ready.then(() => {
+    if (r !== run || !active) return
+    // 视差缩放随滚动变化，滚动结束后的真实位置要重新量
+    later(() => retarget(boxOf(inner.getBoundingClientRect()), target), MOVE + 40)
+    later(() => lockTile(tile), LOCK)
+    later(cancelAll, TOTAL)
+  }, () => {})
 }
 
 /** 从当前时刻的实际位置接到新目标，不跳变 */
@@ -448,20 +453,26 @@ function edgeFlash() {
 }
 
 /** 减弱动效：直接在目标处显示锁定框，不飞不晃 */
-function staticLock(tile: HTMLElement, target: Box) {
+function staticLock(tile: HTMLElement, inner: HTMLElement) {
   const { c, lock } = dims.value
-  const L = inflate(minBox(target, c), lock)
   const show: Keyframe[] = [{ opacity: 1, easing: 'step-end' }, { opacity: 0 }]
+  const els = [...corners(), label.value!]
+  const place = (target: Box) => {
+    const L = inflate(minBox(target, c), lock)
+    const at = [0, 1, 2, 3].map((i) => cornerXf(L, i, c)).concat(placeLabel('LOCK', L))
+    return at.map((t) => [{ transform: t }, { transform: t }])
+  }
+  const target = boxOf(inner.getBoundingClientRect())
   active = true
-  corners().forEach((el, i) => {
-    const at = cornerXf(L, i, c)
-    play(el, [{ transform: at }, { transform: at }], STATIC)
-    play(el, show, STATIC)
-  })
-  const lat = placeLabel('LOCK', L)
-  play(label.value!, [{ transform: lat }, { transform: lat }], STATIC)
-  play(label.value!, show, STATIC)
+  const moves = place(target).map((frames, i) => play(els[i], frames, STATIC))
+  for (const el of els) play(el, show, STATIC)
   lockTile(tile)
+  // 跳滚后视差要过一帧才按新位置重写封面的缩放，届时再对齐一次
+  later(() => {
+    const next = boxOf(inner.getBoundingClientRect())
+    if (Math.abs(next.x - target.x) + Math.abs(next.y - target.y) + Math.abs(next.w - target.w) < 2) return
+    place(next).forEach((frames, i) => (moves[i].effect as KeyframeEffect).setKeyframes(frames))
+  }, 80)
   later(cancelAll, STATIC)
 }
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, watch, watchEffect } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
 import AccountDialog from './components/AccountDialog.vue'
 import AppHeader from './components/AppHeader.vue'
 import CommandPalette from './components/CommandPalette.vue'
@@ -59,6 +59,13 @@ const ambient = computed(
     !account.loginOpen,
 )
 watchEffect(() => document.documentElement.classList.toggle('ambient', ambient.value))
+/** 切歌时歌词重新加载，屏保会短暂退出；用户回来（不再闲置）之前准星都当屏保还开着 */
+const ambientHold = ref(false)
+watch(ambient, (a) => a && (ambientHold.value = true))
+watch(
+  () => ui.idle,
+  (idle) => !idle && (ambientHold.value = false),
+)
 watchEffect(() => document.documentElement.classList.toggle('detail-open', ui.detailOpen))
 watch(
   () => store.current,
@@ -107,7 +114,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   <main>
     <CoverWall />
   </main>
-  <CoverReticle :suspended="ui.detailOpen || ambient" />
+  <CoverReticle :suspended="ui.detailOpen || ambient || ambientHold" />
 
   <Transition name="ambient" :duration="{ enter: 900, leave: 700 }">
     <LyricsBackdrop v-if="ambient" />

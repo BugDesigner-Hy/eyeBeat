@@ -253,6 +253,7 @@ function cycleCrossfade() {
 
 .fx-foot {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   margin-top: 14px;
   padding-top: 10px;
