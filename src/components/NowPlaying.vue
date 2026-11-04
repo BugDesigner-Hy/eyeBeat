@@ -5,8 +5,9 @@ import { useMobile } from '../composables/useMobile'
 import { useLyricsStore } from '../stores/lyrics'
 import { MODE_LABEL, MODE_TITLE, usePlayerStore } from '../stores/player'
 import { useUiStore } from '../stores/ui'
-import { coverSources } from '../utils/cover'
+import { coverSources, markCoverFailed, usableCovers } from '../utils/cover'
 import { fmtTime } from '../utils/time'
+import CoverFallback from './CoverFallback.vue'
 import CoverImage from './CoverImage.vue'
 import DetailInfo from './DetailInfo.vue'
 import DetailLyrics from './DetailLyrics.vue'
@@ -69,6 +70,33 @@ const DRAG_CLOSE = 120
 const DRAG_SLOP = 6
 
 const crossOrigin = provider.coverCors ? 'anonymous' : undefined
+
+/**
+ * 飞行替身和播放栏缩略图用同一组候选地址，每次起飞前重新筛掉缩略图已试过失败的，
+ * 否则替身要先等一次加载失败才换成占位，起飞那一下是空的
+ */
+const ghostCandidates = ref<string[]>([])
+const ghostIndex = ref(0)
+const ghostSrc = computed(() => ghostCandidates.value[ghostIndex.value])
+
+function resetGhost() {
+  const t = player.current
+  ghostCandidates.value = t ? usableCovers(coverSources(t.cover, 'small')) : []
+  ghostIndex.value = 0
+}
+watch(() => player.current, resetGhost, { immediate: true })
+watch(
+  () => ui.detailOpen,
+  (open) => {
+    if (open) resetGhost()
+  },
+)
+
+function onGhostError() {
+  if (ghostSrc.value) markCoverFailed(ghostSrc.value)
+  ghostIndex.value++
+}
+
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 const dragY = ref(0)
@@ -225,7 +253,7 @@ function onEnter(el: Element, done: () => void) {
   if (from) {
     placeGhost(p.ghost, to)
     p.cover.style.opacity = '0'
-    void runMosaic(p.mosaic, coverSources(player.current!.cover, 'small')[0], gen)
+    if (ghostSrc.value) void runMosaic(p.mosaic, ghostSrc.value, gen)
     const fly = p.ghost.animate([{ transform: flipFrom(from, to) }, { transform: 'none' }], {
       duration: 620,
       easing: FLY_OUT,
@@ -325,7 +353,7 @@ function onLeave(el: Element, done: () => void) {
         @pointercancel="onDragEnd"
       >
         <div class="np-bg" aria-hidden="true">
-          <CoverImage :sources="coverSources(player.current.cover, 'medium')" />
+          <CoverImage :sources="coverSources(player.current.cover, 'medium')" :fallback="false" />
         </div>
         <i class="np-grid" aria-hidden="true" />
         <div class="np-content" :class="{ 'np-m': mobile }">
@@ -422,7 +450,15 @@ function onLeave(el: Element, done: () => void) {
       </section>
       <i class="np-scan" aria-hidden="true" />
       <div class="np-ghost" aria-hidden="true">
-        <img :src="coverSources(player.current.cover, 'small')[0]" :crossorigin="crossOrigin" alt="" draggable="false" />
+        <img
+          v-if="ghostSrc"
+          :src="ghostSrc"
+          :crossorigin="crossOrigin"
+          alt=""
+          draggable="false"
+          @error="onGhostError"
+        />
+        <CoverFallback v-else class="np-ghost-fb" />
         <canvas class="np-mosaic" width="6" height="6" />
       </div>
     </div>
@@ -574,6 +610,12 @@ function onLeave(el: Element, done: () => void) {
 .np-mosaic {
   opacity: 0;
   image-rendering: pixelated;
+}
+
+.np-ghost-fb {
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.07) 1px, transparent 1.5px) 0 0 / 8px 8px,
+    var(--bg-2);
 }
 
 @media (max-width: 900px) {
