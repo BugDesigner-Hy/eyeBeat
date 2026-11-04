@@ -2,6 +2,8 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { provider } from '../api'
 import { useMobile } from '../composables/useMobile'
+import { useWide } from '../composables/useWide'
+import { useCommentsStore } from '../stores/comments'
 import { useLyricsStore } from '../stores/lyrics'
 import { MODE_LABEL, MODE_TITLE, usePlayerStore } from '../stores/player'
 import { useUiStore } from '../stores/ui'
@@ -9,6 +11,7 @@ import { coverSources, markCoverFailed, usableCovers } from '../utils/cover'
 import { fmtTime } from '../utils/time'
 import CoverFallback from './CoverFallback.vue'
 import CoverImage from './CoverImage.vue'
+import DetailComments from './DetailComments.vue'
 import DetailInfo from './DetailInfo.vue'
 import DetailLyrics from './DetailLyrics.vue'
 import DetailTelemetry from './DetailTelemetry.vue'
@@ -21,6 +24,8 @@ const player = usePlayerStore()
 const ui = useUiStore()
 const mobile = useMobile()
 const lyrics = useLyricsStore()
+const comments = useCommentsStore()
+const wide = useWide()
 
 const PAGES = ['PLAY', 'LRC', 'INFO'] as const
 /** 连续的页位置 0–2，驱动页码下划线跟手移动 */
@@ -356,7 +361,7 @@ function onLeave(el: Element, done: () => void) {
           <CoverImage :sources="coverSources(player.current.cover, 'medium')" :fallback="false" />
         </div>
         <i class="np-grid" aria-hidden="true" />
-        <div class="np-content" :class="{ 'np-m': mobile }">
+        <div class="np-content" :class="{ 'np-m': mobile, 'np-3': wide && comments.present }">
           <header class="np-head np-in" style="--i: 0">
             <button type="button" class="txt-btn" title="关闭（Esc）" @click="ui.toggleDetail(false)">[CLOSE]</button>
             <nav v-if="mobile" class="np-dots" :style="{ '--p': pos }" aria-label="详情分页">
@@ -445,6 +450,10 @@ function onLeave(el: Element, done: () => void) {
                 <DetailTelemetry :track="player.current" />
               </div>
             </div>
+            <!-- 只做入场：离场时栅格已变回两栏，留着会被挤到下一行 -->
+            <Transition name="np-col">
+              <DetailComments v-if="wide && comments.present" class="np-cmt" />
+            </Transition>
           </template>
         </div>
       </section>
@@ -569,6 +578,25 @@ function onLeave(el: Element, done: () => void) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 32px;
+}
+
+.np-content.np-3 {
+  grid-template-columns: min(44vh, 40vw) minmax(0, 1fr) clamp(300px, 22vw, 380px);
+}
+
+.np-cmt {
+  min-height: 0;
+}
+
+.np-col-enter-active {
+  transition:
+    opacity 360ms var(--ease-out),
+    transform 480ms var(--ease-out);
+}
+
+.np-col-enter-from {
+  opacity: 0;
+  transform: translateX(48px);
 }
 
 .np-scan {
