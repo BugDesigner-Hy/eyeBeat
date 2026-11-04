@@ -117,7 +117,7 @@ onMounted(() => input.value?.focus())
             @click="run(item)"
           >
             <span class="pal-mark">{{ item.active ? '■' : '□' }}</span>
-            <span class="pal-title">{{ item.title }}</span>
+            <span class="pal-title" :class="{ 'px-cjk': item.id.startsWith('shelf-') }">{{ item.title }}</span>
             <span v-if="item.hint" class="pal-hint">{{ item.hint }}</span>
           </button>
         </template>
@@ -238,6 +238,11 @@ onMounted(() => input.value?.focus())
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.pal-title.px-cjk {
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .pal-hint {

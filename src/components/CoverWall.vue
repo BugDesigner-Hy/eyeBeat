@@ -195,14 +195,14 @@ onBeforeUnmount(() => {
   >
     <div class="wall-head">
       <span class="wall-label">// {{ store.keyword ? 'SEARCH' : store.shelf.tag }}</span>
-      <h1 class="wall-title">{{ store.keyword || store.shelf.name }}</h1>
+      <h1 class="wall-title px-cjk">{{ store.keyword || store.shelf.name }}</h1>
       <span v-if="store.listStale" class="wall-sync loading" role="status">SYNC<i class="dots" /></span>
       <nav v-if="!store.keyword && store.shelves.length > 1" class="shelves" aria-label="分区">
         <button
           v-for="s in store.shelves"
           :key="s.id"
           type="button"
-          class="txt-btn"
+          class="txt-btn px-cjk"
           :class="{ on: s.id === store.shelf.id }"
           :aria-pressed="s.id === store.shelf.id"
           @click="pickShelf(s.id)"
@@ -293,11 +293,16 @@ onBeforeUnmount(() => {
 
 .wall-title {
   margin: 0;
-  font-family: var(--font-mono);
-  font-size: 28px;
+  font-family: var(--font-pixel-cjk);
+  font-size: 36px;
   font-weight: 400;
   line-height: 1;
   color: var(--text);
+}
+
+.shelves .txt-btn {
+  font-family: var(--font-pixel-cjk);
+  font-size: 24px;
 }
 
 .wall-sync {
@@ -380,6 +385,7 @@ onBeforeUnmount(() => {
   }
   .shelves .txt-btn {
     flex: none;
+    font-size: 12px;
     min-height: 44px;
     scroll-snap-align: start;
   }
