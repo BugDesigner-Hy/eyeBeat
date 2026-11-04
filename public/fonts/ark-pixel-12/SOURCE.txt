@@ -1,0 +1,6 @@
+Ark Pixel Font 12px Proportional zh_hans (Simplified Chinese), v2026.10.25
+https://github.com/TakWolf/ark-pixel-font — SIL Open Font License 1.1 (see OFL.txt)
+
+Sliced into unicode-range woff2 chunks with cn-font-split 7.4:
+  pnpm dlx cn-font-split run -i ark-pixel-12px-proportional-zh_hans.otf -o out --css.fontFamily "Ark Pixel 12px" --css.fontDisplay swap --css.commentUnicodes false --css.commentNameTable false --css.commentBase false --css.compress true --testHtml false --reporter false
+  then out/result.css -> ark-pixel-12.css
