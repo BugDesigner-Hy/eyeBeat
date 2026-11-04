@@ -5,7 +5,7 @@ const BAR_KEY = 'himusic.barCollapsed'
 const IDLE_MS = 4000
 
 /** 手机端详情页的分页：0 播放、1 歌词、2 信息、3 评论 */
-export type DetailPage = 0 | 1 | 2 | 3
+export type DetailPage = 0 | 1 | 2
 
 interface InstallPromptEvent extends Event {
   prompt(): Promise<void>
