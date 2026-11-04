@@ -9,6 +9,8 @@ const store = useCommentsStore()
 const thread = computed(() => store.thread)
 
 const STAGGER_MAX = 10
+/** 只给一页以内的条目挂显影动画：缓存的长列表重新挂载时不会几百条一起做模糊动画 */
+const ANIMATED = 20
 /** 新追加的一页从 0 开始计显影序号；已显影条目的序号归零，动画已结束不会重播 */
 const base = ref(0)
 watch([thread, () => thread.value?.items.length ?? 0], ([t, n], [pt, old]) => {
@@ -62,7 +64,7 @@ watch([thread, () => thread.value?.loading], () => nextTick(rearm))
           <li
             v-for="(c, i) in thread.items"
             :key="c.id"
-            class="np-in"
+            :class="{ 'np-in': i >= base && i < base + ANIMATED }"
             :style="{ '--i': 2 + Math.min(STAGGER_MAX, Math.max(0, i - base)) }"
           >
             <CommentItem :c="c" />

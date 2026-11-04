@@ -107,6 +107,12 @@ const more = computed(() => Math.max(0, (props.c.replyCount ?? 0) - replies.valu
   color: var(--text-dim);
 }
 
+.cc-name,
+.cc-sub {
+  /* 配合 overflow: hidden，行高为 1 会裁掉下伸部 */
+  line-height: 1.3;
+}
+
 .cc-name {
   flex: none;
   max-width: 50%;
