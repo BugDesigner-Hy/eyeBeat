@@ -44,10 +44,10 @@ watch(
   { flush: 'post' },
 )
 
-const PAGES = ['PLAY', 'LRC', 'INFO', 'CMT'] as const
-/** 没有评论时只有前三页；评论晚到时追加在末尾，不跳页 */
-const pages = computed(() => (comments.present ? PAGES : PAGES.slice(0, 3)))
-/** 连续的页位置 0–3，驱动页码下划线跟手移动 */
+const PAGES = ['PLAY', 'LRC', 'CMT'] as const
+/** 没有评论时只有前两页；评论晚到时追加在末尾，不跳页 */
+const pages = computed(() => (comments.present ? PAGES : PAGES.slice(0, 2)))
+/** 连续的页位置 0–2，驱动页码下划线跟手移动 */
 const pos = ref(0)
 const page = computed(() => Math.round(pos.value))
 /** 进入过的页才播放信息块的组装动画 */
@@ -69,16 +69,16 @@ watch(mobile, () =>
   }),
 )
 
-/** 停在评论页时切到没有评论的歌：第 4 页被移除，回到信息页 */
+/** 停在评论页时切到没有评论的歌：评论页被移除，回到歌词页 */
 watch(
   () => comments.present,
   (has) => {
     const el = activePager
     // 关闭详情页也会让 present 变假，离场中的分页不能再动
-    if (has || !el || !activeRoot || page.value < 3) return
-    el.scrollLeft = 2 * el.clientWidth
-    pos.value = 2
-    if (!seen.value.includes(2)) seen.value = [...seen.value, 2]
+    if (has || !el || !activeRoot || page.value < 2) return
+    el.scrollLeft = el.clientWidth
+    pos.value = 1
+    if (!seen.value.includes(1)) seen.value = [...seen.value, 1]
   },
   { flush: 'post' },
 )
@@ -433,7 +433,7 @@ function onLeave(el: Element, done: () => void) {
                 <CoverImage :sources="coverSources(player.current.cover, 'large')" />
                 <i class="np-corners" aria-hidden="true" />
               </div>
-              <DetailInfo :track="player.current" part="head" />
+              <DetailInfo :track="player.current" part="brief" />
               <div class="np-seek np-in" style="--i: 4">
                 <span>{{ fmtTime(player.currentTime) }}</span>
                 <SegmentBar
@@ -474,15 +474,10 @@ function onLeave(el: Element, done: () => void) {
             <section class="np-page" :class="{ seen: seen.includes(1) }" data-page="lrc">
               <DetailLyrics />
             </section>
-            <section class="np-page np-page-scroll" :class="{ seen: seen.includes(2) }" data-page="info">
-              <DetailInfo :track="player.current" part="meta" />
-              <DetailTelemetry :track="player.current" :bars="16" :rows="7" />
-              <UpNext />
-            </section>
             <section
               v-if="comments.present"
               class="np-page np-page-scroll"
-              :class="{ seen: seen.includes(3) }"
+              :class="{ seen: seen.includes(2) }"
               data-page="cmt"
             >
               <DetailComments embedded />
@@ -959,5 +954,18 @@ function onLeave(el: Element, done: () => void) {
 
 .np-page-scroll::-webkit-scrollbar {
   display: none;
+}
+
+/* 详情页盖住迷你播放条：控制区在第 1 页已有；播放条仍在下面留着，开合时封面要从它的缩略图起降 */
+@media (max-width: 640px) {
+  .np-shell {
+    bottom: 0;
+  }
+  .np-scan {
+    bottom: 0;
+  }
+  .np-content.np-m {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 </style>
