@@ -433,7 +433,7 @@ function onLeave(el: Element, done: () => void) {
                 <CoverImage :sources="coverSources(player.current.cover, 'large')" />
                 <i class="np-corners" aria-hidden="true" />
               </div>
-              <DetailInfo :track="player.current" part="head" />
+              <DetailInfo :track="player.current" part="brief" />
               <div class="np-seek np-in" style="--i: 4">
                 <span>{{ fmtTime(player.currentTime) }}</span>
                 <SegmentBar
@@ -954,5 +954,18 @@ function onLeave(el: Element, done: () => void) {
 
 .np-page-scroll::-webkit-scrollbar {
   display: none;
+}
+
+/* 详情页盖住迷你播放条：控制区在第 1 页已有；播放条仍在下面留着，开合时封面要从它的缩略图起降 */
+@media (max-width: 640px) {
+  .np-shell {
+    bottom: 0;
+  }
+  .np-scan {
+    bottom: 0;
+  }
+  .np-content.np-m {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 </style>
