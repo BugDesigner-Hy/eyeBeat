@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { provider } from '../api'
+import { useFold } from '../composables/useFold'
 import { useMobile } from '../composables/useMobile'
 import { useWide } from '../composables/useWide'
 import { useCommentsStore } from '../stores/comments'
 import { useLyricsStore } from '../stores/lyrics'
 import { MODE_LABEL, MODE_TITLE, usePlayerStore } from '../stores/player'
+import { useSettingsStore } from '../stores/settings'
 import { useUiStore } from '../stores/ui'
 import { coverSources, markCoverFailed, usableCovers } from '../utils/cover'
 import { fmtNum } from '../utils/num'
@@ -43,6 +45,56 @@ watch(
   },
   { flush: 'post' },
 )
+
+const settings = useSettingsStore()
+const content = ref<HTMLElement>()
+const cmtCol = ref<HTMLElement>()
+const lowerWrap = ref<HTMLElement>()
+const cmtCount = computed(() => (comments.total != null ? fmtNum(comments.total) : '--'))
+const px = (v: number[]) => v.map((n) => `${n}px`).join(' ')
+
+const {
+  phase: cmtPhase,
+  toggle: toggleCmt,
+  stopLayout: stopCmtLayout,
+} = useFold({
+  axis: 'x',
+  root: () => cmtCol.value,
+  label: () => `// COMMENTS ${cmtCount.value}`,
+  get: () => settings.detailCmtCollapsed,
+  set: (v) => (settings.detailCmtCollapsed = v),
+  layout(closing) {
+    const el = content.value
+    const body = cmtCol.value?.querySelector<HTMLElement>('[data-fold-body]')
+    if (!el || !body) return null
+    // 栅格容器的计算值是各轨道的实际 px
+    const from = getComputedStyle(el).gridTemplateColumns.split(' ').map(parseFloat)
+    if (from.length !== 5 || from.some(Number.isNaN)) return null
+    const [left, gap, mid, gap2, cmt] = from
+    const w = body.offsetWidth
+    const to = closing ? [left, gap, mid + gap2 + cmt, 0, 0] : [left, gap, mid - gap - w, gap, w]
+    return { el, keyframes: [{ gridTemplateColumns: px(from) }, { gridTemplateColumns: px(to) }] }
+  },
+})
+watch([wide, () => comments.present], ([w, has]) => {
+  if (!w || !has) stopCmtLayout()
+})
+
+const { phase: lowerPhase, toggle: toggleLower } = useFold({
+  axis: 'y',
+  root: () => lowerWrap.value,
+  label: () => '// QUEUE · TELEMETRY',
+  get: () => settings.detailLowerCollapsed,
+  set: (v) => (settings.detailLowerCollapsed = v),
+  layout(closing) {
+    const el = lowerWrap.value
+    const body = el?.querySelector<HTMLElement>('[data-fold-body]')
+    const dock = el?.querySelector<HTMLElement>('[data-fold-dock]')
+    if (!el || !body || !dock) return null
+    const to = closing ? dock.offsetHeight : body.offsetHeight
+    return { el, keyframes: [{ height: `${el.offsetHeight}px` }, { height: `${to}px` }] }
+  },
+})
 
 const PAGES = ['PLAY', 'LRC', 'CMT'] as const
 /** 没有评论时只有前两页；评论晚到时追加在末尾，不跳页 */
@@ -394,7 +446,11 @@ function onLeave(el: Element, done: () => void) {
           <CoverImage :sources="coverSources(player.current.cover, 'medium')" :fallback="false" />
         </div>
         <i class="np-grid" aria-hidden="true" />
-        <div class="np-content" :class="{ 'np-m': mobile, 'np-3': wide && comments.present }">
+        <div
+          ref="content"
+          class="np-content"
+          :class="{ 'np-m': mobile, 'np-3': wide && comments.present, 'np-cmt-off': cmtPhase === 'closed' }"
+        >
           <header class="np-head np-in" style="--i: 0">
             <button type="button" class="txt-btn" title="关闭（Esc）" @click="ui.toggleDetail(false)">[CLOSE]</button>
             <nav v-if="mobile" class="np-dots" :style="{ '--p': pos }" aria-label="详情分页">
@@ -494,14 +550,90 @@ function onLeave(el: Element, done: () => void) {
             </div>
             <div class="np-right" :inert="drawerOpen">
               <DetailLyrics />
-              <div class="np-lower">
-                <UpNext />
-                <DetailTelemetry :track="player.current" />
+              <div
+                ref="lowerWrap"
+                class="np-lower-wrap"
+                :class="{ off: lowerPhase !== 'open', closed: lowerPhase === 'closed' }"
+              >
+                <div id="np-lower" class="np-lower-clip" data-fold-body :inert="lowerPhase !== 'open'">
+                  <div class="np-lower">
+                    <UpNext />
+                    <DetailTelemetry :track="player.current" />
+                  </div>
+                  <button
+                    type="button"
+                    class="txt-btn np-fold-btn"
+                    data-fold-toggle
+                    aria-expanded="true"
+                    aria-controls="np-lower"
+                    aria-label="收起队列与参数"
+                    title="收起队列与参数"
+                    @click="toggleLower"
+                  >
+                    [-]
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  class="np-strip np-in"
+                  style="--i: 6"
+                  data-fold-dock
+                  :inert="lowerPhase !== 'closed'"
+                  aria-expanded="false"
+                  aria-controls="np-lower"
+                  aria-label="展开队列与参数"
+                  title="展开队列与参数"
+                  @click="toggleLower"
+                >
+                  <span>// QUEUE · TELEMETRY</span>
+                  <span class="np-dock-hint">[+]</span>
+                </button>
+                <i class="np-fold-box" aria-hidden="true"><b class="np-label np-fold-tag" /></i>
+                <i class="np-fold-line" aria-hidden="true" />
               </div>
             </div>
             <!-- 只做入场：离场时栅格已变回两栏，留着会被挤到下一行 -->
             <Transition name="np-col">
-              <DetailComments v-if="wide && comments.present" class="np-cmt" />
+              <div
+                v-if="wide && comments.present"
+                ref="cmtCol"
+                class="np-cmt-col"
+                :class="{ off: cmtPhase !== 'open', closed: cmtPhase === 'closed' }"
+              >
+                <div id="np-cmt" class="np-cmt-clip" data-fold-body :inert="cmtPhase !== 'open'">
+                  <DetailComments class="np-cmt" />
+                  <button
+                    type="button"
+                    class="txt-btn np-fold-btn"
+                    data-fold-toggle
+                    aria-expanded="true"
+                    aria-controls="np-cmt"
+                    aria-label="收起评论"
+                    title="收起评论"
+                    @click="toggleCmt"
+                  >
+                    [-]
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  class="np-rail np-in"
+                  style="--i: 3"
+                  data-fold-dock
+                  :inert="cmtPhase !== 'closed'"
+                  aria-expanded="false"
+                  aria-controls="np-cmt"
+                  :aria-label="`展开评论（${cmtCount}）`"
+                  title="展开评论"
+                  @click="toggleCmt"
+                >
+                  <span class="np-dock-hint">[+]</span>
+                  <span class="np-rail-text">// CMT</span>
+                  <span class="np-rail-text np-rail-num">{{ cmtCount }}</span>
+                </button>
+                <i class="np-fold-box" aria-hidden="true"><b class="np-label np-fold-tag" /></i>
+                <i class="np-fold-line" aria-hidden="true" />
+              </div>
             </Transition>
           </template>
         </div>
@@ -566,15 +698,18 @@ function onLeave(el: Element, done: () => void) {
 }
 
 .np-content {
+  --np-pad-x: clamp(24px, 5vw, 72px);
+  --np-gap: clamp(32px, 5vw, 80px);
+  --cmt-w: clamp(300px, 22vw, 380px);
   position: relative;
   box-sizing: border-box;
   height: 100%;
   display: grid;
   grid-template-columns: min(44vh, 40vw) minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
-  column-gap: clamp(32px, 5vw, 80px);
+  column-gap: var(--np-gap);
   row-gap: 24px;
-  padding: 28px clamp(24px, 5vw, 72px) 32px;
+  padding: 28px var(--np-pad-x) 32px;
 }
 
 .np-head {
@@ -644,12 +779,198 @@ function onLeave(el: Element, done: () => void) {
   gap: 32px;
 }
 
+/* 栏间距写成轨道：折叠时“间隔 + 评论”两条轨道一起过渡到 0，歌词右缘回到两栏布局的位置 */
 .np-content.np-3 {
-  grid-template-columns: min(44vh, 40vw) minmax(0, 1fr) clamp(300px, 22vw, 380px);
+  column-gap: 0;
+  grid-template-columns: min(44vh, 40vw) var(--np-gap) minmax(0, 1fr) var(--np-gap) var(--cmt-w);
+}
+
+.np-content.np-3.np-cmt-off {
+  grid-template-columns: min(44vh, 40vw) var(--np-gap) minmax(0, 1fr) 0px 0px;
+}
+
+.np-3 > .np-left {
+  grid-area: 2 / 1;
+}
+
+.np-3 > .np-right {
+  grid-area: 2 / 3;
+}
+
+.np-cmt-col {
+  grid-area: 2 / 5;
+  position: relative;
+  min-height: 0;
+}
+
+/* 固定宽度、贴右：轨道变窄时不重排评论 */
+.np-cmt-clip {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  width: var(--cmt-w);
 }
 
 .np-cmt {
-  min-height: 0;
+  flex: 1;
+}
+
+.np-cmt-col.closed .np-cmt-clip,
+.np-lower-wrap.closed .np-lower-clip,
+.np-cmt-col:not(.off) .np-rail,
+.np-lower-wrap:not(.off) .np-strip {
+  visibility: hidden;
+}
+
+.np-fold-btn {
+  position: absolute;
+  top: -2px;
+  right: 0;
+}
+
+.np-lower-wrap {
+  --strip-h: 26px;
+  position: relative;
+  min-width: 0;
+}
+
+.np-lower-clip {
+  position: relative;
+}
+
+/* 折叠过程中和折叠后量的是自然高度，不能再撑开外层 */
+.np-lower-wrap.off .np-lower-clip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.np-lower-wrap.closed {
+  height: var(--strip-h);
+}
+
+.np-rail,
+.np-strip {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 160ms var(--ease-out),
+    background 160ms var(--ease-out);
+}
+
+.np-rail:hover,
+.np-strip:hover {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+.np-rail {
+  top: 0;
+  bottom: 0;
+  right: calc(12px - var(--np-pad-x));
+  flex-direction: column;
+  gap: 14px;
+  width: 28px;
+  padding-top: 8px;
+  border-left: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.np-rail-text {
+  writing-mode: vertical-rl;
+  letter-spacing: 0.12em;
+}
+
+.np-rail-text:first-of-type {
+  color: var(--accent);
+}
+
+.np-strip {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  justify-content: space-between;
+  height: var(--strip-h);
+  padding: 0 8px;
+  border-top: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.np-strip > span:first-child {
+  color: var(--accent);
+  opacity: 0.8;
+}
+
+.np-dock-hint {
+  flex: none;
+}
+
+/* HUD 折叠：只在 useFold 的动画里显现 */
+.np-fold-box,
+.np-fold-line {
+  position: absolute;
+  z-index: 2;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.np-fold-box {
+  border: 1px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  background:
+    repeating-linear-gradient(color-mix(in srgb, var(--accent) 7%, transparent) 0 1px, transparent 1px 4px),
+    color-mix(in srgb, var(--accent) 4%, transparent);
+  box-shadow: inset 0 0 24px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.np-fold-tag {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  margin: 0;
+  font-weight: 400;
+  white-space: pre;
+}
+
+.np-fold-line {
+  background: var(--accent);
+  box-shadow:
+    0 0 10px var(--accent),
+    0 0 2px var(--accent);
+}
+
+.np-cmt-col .np-fold-box {
+  top: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.np-cmt-col .np-fold-line {
+  top: 0;
+  bottom: 0;
+  width: 2px;
+}
+
+.np-lower-wrap .np-fold-box {
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.np-lower-wrap .np-fold-line {
+  left: 0;
+  right: 0;
+  height: 2px;
 }
 
 .np-col-enter-active {
