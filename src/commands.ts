@@ -110,6 +110,14 @@ export function useCommands() {
         active: settings.wallFocus,
         run: () => (settings.wallFocus = !settings.wallFocus),
       },
+      {
+        id: 'reticle',
+        group: 'VISUAL',
+        title: '切歌准星定位',
+        keywords: 'reticle locate lock aim target 准星 瞄准',
+        active: settings.reticleLocate,
+        run: () => (settings.reticleLocate = !settings.reticleLocate),
+      },
 
       { id: 'fx', group: 'AUDIO', title: '音效面板', keywords: 'fx eq equalizer', active: ui.fxOpen, run: () => ui.toggleFx() },
       ...Object.entries(EQ_PRESETS).map(([id, p]) => ({

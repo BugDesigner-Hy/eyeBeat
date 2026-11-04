@@ -46,6 +46,7 @@ const sources = computed(() =>
       '--delay': `${(index % 40) * 22}ms`,
       zIndex: Math.round(depth * 10),
     }"
+    :data-track-id="track.id"
     :aria-label="`播放 ${track.title} - ${track.artist}`"
     @click="$emit('select')"
   >
@@ -170,6 +171,36 @@ const sources = computed(() =>
     var(--w) var(--l);
 }
 
+/* 准星锁定时闪一下边框：data-lock 由 CoverReticle 直接写，Vue 不管理这个属性 */
+.tile-inner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow:
+    inset 0 0 0 2px var(--accent),
+    inset 0 0 18px color-mix(in srgb, var(--accent) 45%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tile[data-lock] .tile-inner::after {
+  animation: lock-flash 420ms steps(6) both;
+}
+
+@keyframes lock-flash {
+  0%,
+  34% {
+    opacity: 1;
+  }
+  17%,
+  50% {
+    opacity: 0.2;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 .meta {
   position: absolute;
   left: 0;
@@ -250,6 +281,11 @@ const sources = computed(() =>
 @media (prefers-reduced-motion: reduce) {
   .tile-inner {
     animation: none;
+  }
+  /* 全局规则会把闪烁压成 0.01ms，改为锁定期间静态高亮 */
+  .tile[data-lock] .tile-inner::after {
+    animation: none;
+    opacity: 1;
   }
 }
 
