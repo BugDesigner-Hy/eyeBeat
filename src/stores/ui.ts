@@ -43,6 +43,7 @@ export const useUiStore = defineStore('ui', () => {
   function toggleDetail(v = !detailOpen.value, page: DetailPage = 0) {
     if (v) detailPage.value = page
     else commentsOpen.value = false
+    // 已打开时再带 page 调用（例如 L 键）也要更新页码，供手机手势层切换
     detailOpen.value = v
   }
   const toggleComments = (v = !commentsOpen.value) => (commentsOpen.value = v)

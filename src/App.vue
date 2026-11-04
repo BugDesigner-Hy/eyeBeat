@@ -93,6 +93,7 @@ function onKeydown(e: KeyboardEvent) {
   } else if (e.key === 'ArrowLeft') {
     store.seek(store.currentTime - 5)
   } else if (e.key.toLowerCase() === 'l' && store.current) {
+    // 手机：打开到歌词层；已打开时也切到歌词（NowPlaying 监听 detailPage）
     if (mobile.value) ui.toggleDetail(true, 1)
     else ui.toggleLyrics()
   } else if (e.key.toLowerCase() === 'b' && store.current) {
