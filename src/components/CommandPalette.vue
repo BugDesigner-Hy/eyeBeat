@@ -117,7 +117,7 @@ onMounted(() => input.value?.focus())
             @click="run(item)"
           >
             <span class="pal-mark">{{ item.active ? '■' : '□' }}</span>
-            <span class="pal-title">{{ item.title }}</span>
+            <span class="pal-title" :class="{ 'px-cjk': item.id.startsWith('shelf-') }">{{ item.title }}</span>
             <span v-if="item.hint" class="pal-hint">{{ item.hint }}</span>
           </button>
         </template>
@@ -141,6 +141,7 @@ onMounted(() => input.value?.focus())
   display: flex;
   justify-content: center;
   padding-top: 14vh;
+  padding-top: round(14vh, 1px);
   background: rgba(5, 6, 8, 0.6);
 }
 
@@ -217,6 +218,8 @@ onMounted(() => input.value?.focus())
   background: none;
   color: var(--text);
   font-size: 14px;
+  /* 行高取整，否则逐行累积半像素，像素字会落在半像素上发糊 */
+  line-height: 18px;
   text-align: left;
   cursor: pointer;
 }
@@ -228,6 +231,7 @@ onMounted(() => input.value?.focus())
 
 .pal-mark {
   flex: none;
+  width: 10px;
   font-size: 10px;
   opacity: 0.8;
 }
@@ -238,6 +242,10 @@ onMounted(() => input.value?.focus())
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.pal-title.px-cjk {
+  font-size: 12px;
 }
 
 .pal-hint {

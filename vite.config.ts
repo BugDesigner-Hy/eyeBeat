@@ -34,8 +34,28 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,woff,woff2,png}'],
+          // 中文像素字体共 1.4MB，按 unicode-range 用到哪片才下哪片，不能预缓存
+          globIgnores: ['**/fonts/ark-pixel-12/**'],
           navigateFallbackDenylist: neteaseBase.startsWith('/') ? [new RegExp(`^${neteaseBase}`)] : [],
           runtimeCaching: [
+            {
+              // 分片文件名是内容哈希，可以一直用缓存；样式表名字固定，需要后台更新
+              urlPattern: ({ url }) => url.pathname.startsWith('/fonts/ark-pixel-12/') && url.pathname.endsWith('.woff2'),
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'ark-pixel-12',
+                expiration: { maxEntries: 80, maxAgeSeconds: 365 * DAY },
+                cacheableResponse: { statuses: [200] },
+              },
+            },
+            {
+              urlPattern: ({ url }) => url.pathname === '/fonts/ark-pixel-12/ark-pixel-12.css',
+              handler: 'StaleWhileRevalidate',
+              options: {
+                cacheName: 'ark-pixel-12-css',
+                cacheableResponse: { statuses: [200] },
+              },
+            },
             {
               // 只缓存带 CORS 的封面；音频流体积大且走 Range 请求，不缓存
               urlPattern: ({ request }) => request.destination === 'image',

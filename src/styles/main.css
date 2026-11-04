@@ -25,6 +25,8 @@
 
   /* 像素字体没有中文字形，中文回退到黑体，避免落到宋体 */
   --font-pixel: 'Silkscreen', 'PingFang SC', 'Microsoft YaHei', monospace;
+  /* 12px 网格的中文像素字体，只能用 12 的整数倍字号 */
+  --font-pixel-cjk: 'Ark Pixel 12px', 'PingFang SC', 'Microsoft YaHei', monospace;
   --font-mono: 'VT323', ui-monospace, 'Cascadia Mono', 'PingFang SC', 'Microsoft YaHei', monospace;
   --font-sans: 'Inter', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
 
@@ -118,6 +120,16 @@ button {
 .txt-btn:hover,
 .txt-btn.on {
   color: var(--accent);
+}
+
+/* 位图字形一旦抗锯齿或落在半像素上就会发糊 */
+.px-cjk {
+  font-family: var(--font-pixel-cjk);
+  font-weight: 400;
+  letter-spacing: 0;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+  font-smooth: never;
 }
 
 .px-cut {
