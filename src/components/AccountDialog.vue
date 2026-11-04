@@ -5,6 +5,7 @@ import { errorMessage } from '../api/http'
 import type { QrLoginTicket } from '../api/types'
 import { useAccountStore } from '../stores/account'
 import { usePlayerStore } from '../stores/player'
+import VipBadge from './VipBadge.vue'
 
 const POLL_MS = 2000
 
@@ -95,7 +96,7 @@ onBeforeUnmount(() => {
 
       <div v-if="account.profile" class="acct-body">
         <img class="avatar" :src="`${account.profile.avatar}?param=160y160`" alt="" />
-        <p class="name">{{ account.profile.nickname }}</p>
+        <p class="name"><VipBadge v-if="account.profile.vip" />{{ account.profile.nickname }}</p>
         <p class="hint">UID {{ account.profile.id }}</p>
         <button type="button" class="txt-btn" @click="logout">[退出登录]</button>
       </div>
@@ -216,6 +217,9 @@ onBeforeUnmount(() => {
 }
 
 .name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 0;
   font-size: 16px;
   font-weight: 600;

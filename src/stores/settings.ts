@@ -13,6 +13,8 @@ export interface Settings {
   accentMode: 'cover' | 'fixed'
   fixedAccent: string
   wallFocus: boolean
+  /** 切歌时准星飞到封面墙上的新歌并锁定 */
+  reticleLocate: boolean
   backdropLyrics: boolean
   /** 全局歌词偏移（秒），正值表示歌词提前 */
   lyricOffset: number
@@ -33,6 +35,7 @@ const DEFAULTS: Settings = {
   accentMode: 'cover',
   fixedAccent: ACCENT_PRESETS[0].color,
   wallFocus: true,
+  reticleLocate: true,
   backdropLyrics: true,
   lyricOffset: 0,
   eqPreset: 'flat',

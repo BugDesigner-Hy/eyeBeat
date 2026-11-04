@@ -5,6 +5,7 @@ import { useAccountStore } from '../stores/account'
 import { usePlayerStore } from '../stores/player'
 import { useSettingsStore } from '../stores/settings'
 import { useUiStore } from '../stores/ui'
+import VipBadge from './VipBadge.vue'
 
 const ui = useUiStore()
 const account = useAccountStore()
@@ -65,6 +66,7 @@ function run(fn: () => void) {
             <span class="ms-key">ACCOUNT</span>
             <span class="ms-val">
               <img v-if="account.profile" :src="`${account.profile.avatar}?param=40y40`" alt="" />
+              <VipBadge v-if="account.profile?.vip" />
               {{ account.profile ? account.profile.nickname : '[LOGIN]' }}
             </span>
           </button>

@@ -143,6 +143,8 @@ export interface AccountProfile {
   id: string
   nickname: string
   avatar: string
+  /** 会员（网易云黑胶 VIP / 音乐包） */
+  vip?: boolean
 }
 
 export interface QrLoginTicket {

@@ -4,6 +4,7 @@ import { availableProviders, provider, switchProvider } from '../api'
 import { useAccountStore } from '../stores/account'
 import { usePlayerStore } from '../stores/player'
 import { useUiStore } from '../stores/ui'
+import VipBadge from './VipBadge.vue'
 
 const store = usePlayerStore()
 const account = useAccountStore()
@@ -49,6 +50,7 @@ function clear() {
         @click="account.openLogin(true)"
       >
         <img v-if="account.profile" :src="`${account.profile.avatar}?param=40y40`" alt="" />
+        <VipBadge v-if="account.profile?.vip" />
         {{ account.profile ? account.profile.nickname : '[LOGIN]' }}
       </button>
       <i class="dot" :class="{ live: store.isPlaying }" />
@@ -174,7 +176,7 @@ function clear() {
   display: flex;
   align-items: center;
   gap: 6px;
-  max-width: 160px;
+  max-width: 184px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
