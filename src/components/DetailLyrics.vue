@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useMobile } from '../composables/useMobile'
 import { useLyricsStore } from '../stores/lyrics'
 import { usePlayerStore } from '../stores/player'
 import { useSettingsStore } from '../stores/settings'
@@ -7,6 +8,7 @@ import { useSettingsStore } from '../stores/settings'
 const lyrics = useLyricsStore()
 const player = usePlayerStore()
 const settings = useSettingsStore()
+const mobile = useMobile()
 const box = ref<HTMLElement>()
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -25,7 +27,16 @@ watch(
   () => lyrics.lyrics,
   () => nextTick(() => center(false)),
 )
-onMounted(() => center(false))
+// 桌面详情页面板折叠/展开、窗口缩放时歌词框尺寸会变，当前句要跟着留在中间；
+// 手机端地址栏伸缩也会改尺寸，跟着跳会打断手动翻看
+const ro = new ResizeObserver(() => {
+  if (!mobile.value) center(false)
+})
+onMounted(() => {
+  center(false)
+  if (box.value) ro.observe(box.value)
+})
+onBeforeUnmount(() => ro.disconnect())
 
 function seekTo(time: number) {
   if (time < 0) return
