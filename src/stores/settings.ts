@@ -21,6 +21,10 @@ export interface Settings {
   bitcrush: boolean
   crossfade: boolean
   crossfadeSec: number
+  /** 桌面详情页：评论栏（≥1440px）折叠成右侧细轨 */
+  detailCmtCollapsed: boolean
+  /** 桌面详情页：接下来播放与数据面板折叠成底部细条 */
+  detailLowerCollapsed: boolean
 }
 
 const KEY = 'himusic.settings'
@@ -36,6 +40,8 @@ const DEFAULTS: Settings = {
   bitcrush: false,
   crossfade: true,
   crossfadeSec: 4,
+  detailCmtCollapsed: false,
+  detailLowerCollapsed: false,
 }
 
 function load(): Settings {
