@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, watch, watchEffect } from 'vue'
 import AccountDialog from './components/AccountDialog.vue'
 import AppHeader from './components/AppHeader.vue'
 import CommandPalette from './components/CommandPalette.vue'
+import CoverReticle from './components/CoverReticle.vue'
 import CoverWall from './components/CoverWall.vue'
 import FxPanel from './components/FxPanel.vue'
 import LyricsBackdrop from './components/LyricsBackdrop.vue'
@@ -106,6 +107,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   <main>
     <CoverWall />
   </main>
+  <CoverReticle :suspended="ui.detailOpen || ambient" />
 
   <Transition name="ambient" :duration="{ enter: 900, leave: 700 }">
     <LyricsBackdrop v-if="ambient" />
