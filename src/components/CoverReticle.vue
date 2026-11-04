@@ -81,18 +81,30 @@ function cornerXf(b: Box, i: number, c: number) {
 
 const crossXf = (b: Box, c: number) => xf(b.x + (b.w - c) / 2, b.y + (b.h - c) / 2)
 
-/** 顶栏下沿到底栏上沿之间才算“看得见” */
-function region() {
-  const top = document.querySelector('header.top')?.getBoundingClientRect().bottom ?? 0
-  const dock = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dock-h')) || 0
-  return { top: Math.max(0, top), bottom: window.innerHeight - dock }
+interface Region {
+  top: number
+  bottom: number
+  right: number
 }
 
-function visibleRatio(r: DOMRect, reg: { top: number; bottom: number }) {
-  const w = Math.max(0, Math.min(r.right, window.innerWidth) - Math.max(r.left, 0))
+/** 顶栏下沿到底栏上沿之间、桌面歌词面板左侧才算“看得见” */
+function region(): Region {
+  const top = document.querySelector('header.top')?.getBoundingClientRect().bottom ?? 0
+  const dock = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dock-h')) || 0
+  const panel = document.querySelector('aside.lyrics')?.getBoundingClientRect()
+  return {
+    top: Math.max(0, top),
+    bottom: window.innerHeight - dock,
+    right: panel && panel.width > 0 ? panel.left : window.innerWidth,
+  }
+}
+
+const hRatio = (r: DOMRect, reg: Region) =>
+  r.width ? Math.max(0, Math.min(r.right, reg.right) - Math.max(r.left, 0)) / r.width : 0
+
+function visibleRatio(r: DOMRect, reg: Region) {
   const h = Math.max(0, Math.min(r.bottom, reg.bottom) - Math.max(r.top, reg.top))
-  const area = r.width * r.height
-  return area ? (w * h) / area : 0
+  return r.height ? (hRatio(r, reg) * h) / r.height : 0
 }
 
 function findTile(id: string) {
@@ -235,9 +247,17 @@ function onPointerDown(e: PointerEvent) {
 
 const onPointerUp = () => (pointerHeld = false)
 
+/** 只看宽度：手机地址栏随滚动收起也会触发 resize，高度变化不影响封面排布 */
+let lastWidth = window.innerWidth
+function onResize() {
+  if (window.innerWidth === lastWidth) return
+  lastWidth = window.innerWidth
+  dismiss()
+}
+
 /* ---------------- 瞄准 ---------------- */
 
-function sourceBox(prevId: string | null | undefined, reg: { top: number; bottom: number }): Box {
+function sourceBox(prevId: string | null | undefined, reg: Region): Box {
   const prev = prevId ? findTile(prevId)?.querySelector('.tile-inner') : null
   if (prev) {
     const r = prev.getBoundingClientRect()
@@ -281,10 +301,11 @@ function aim(prevId?: string | null) {
   cancelAll()
   const tile = findTile(id)
   const inner = tile?.querySelector<HTMLElement>('.tile-inner')
-  if (!tile || !inner) return edgeFlash()
-
   const reg = region()
-  const r = inner.getBoundingClientRect()
+  const r = inner?.getBoundingClientRect()
+  // 被歌词面板挡住的列纵向滚动也露不出来，同样按“不在视野内”处理
+  if (!tile || !inner || !r || hRatio(r, reg) < 0.5) return edgeFlash(reg)
+
   let dy = 0
   if (visibleRatio(r, reg) < 0.5) {
     if (performance.now() - userScrollAt < USER_SCROLL_MS) return
@@ -387,9 +408,9 @@ function fly(src: Box, target: Box, fromVisible: boolean, tile: HTMLElement, inn
   const r = run
   void moving[0].anim.ready.then(() => {
     if (r !== run || !active) return
-    // 视差缩放随滚动变化，滚动结束后的真实位置要重新量
-    later(() => retarget(boxOf(inner.getBoundingClientRect()), target), MOVE + 40)
-    later(() => lockTile(tile), LOCK)
+    // 视差缩放随滚动变化，滚动结束后的真实位置要重新量；期间换了分区 / 搜索结果，封面已不在页面上
+    later(() => (inner.isConnected ? retarget(boxOf(inner.getBoundingClientRect()), target) : dismiss()), MOVE + 40)
+    later(() => (tile.isConnected ? lockTile(tile) : dismiss()), LOCK)
     later(cancelAll, TOTAL)
   }, () => {})
 }
@@ -410,12 +431,11 @@ function retarget(next: Box, prev: Box) {
   }
 }
 
-/** 新歌不在当前封面墙：在屏幕右缘闪两下，提示目标不在视野内 */
-function edgeFlash() {
+/** 新歌不在当前封面墙：在可视区右缘闪两下，提示目标不在视野内 */
+function edgeFlash(reg: Region) {
   const { c } = dims.value
-  const reg = region()
   const s = mobile.value ? 40 : 56
-  const B: Box = { x: window.innerWidth - s - (mobile.value ? 8 : 14), y: (reg.top + reg.bottom) / 2 - s / 2, w: s, h: s }
+  const B: Box = { x: reg.right - s - (mobile.value ? 8 : 14), y: (reg.top + reg.bottom) / 2 - s / 2, w: s, h: s }
   const still = reduceQuery.matches
   active = true
 
@@ -469,6 +489,7 @@ function staticLock(tile: HTMLElement, inner: HTMLElement) {
   lockTile(tile)
   // 跳滚后视差要过一帧才按新位置重写封面的缩放，届时再对齐一次
   later(() => {
+    if (!inner.isConnected) return dismiss()
     const next = boxOf(inner.getBoundingClientRect())
     if (Math.abs(next.x - target.x) + Math.abs(next.y - target.y) + Math.abs(next.w - target.w) < 2) return
     place(next).forEach((frames, i) => (moves[i].effect as KeyframeEffect).setKeyframes(frames))
@@ -524,6 +545,7 @@ onMounted(() => {
   window.addEventListener('pointerdown', onPointerDown, { passive: true, capture: true })
   window.addEventListener('pointerup', onPointerUp, { passive: true, capture: true })
   window.addEventListener('pointercancel', onPointerUp, { passive: true, capture: true })
+  window.addEventListener('resize', onResize, { passive: true })
   document.addEventListener('visibilitychange', onVisibility)
 })
 
@@ -537,6 +559,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointerdown', onPointerDown, { capture: true })
   window.removeEventListener('pointerup', onPointerUp, { capture: true })
   window.removeEventListener('pointercancel', onPointerUp, { capture: true })
+  window.removeEventListener('resize', onResize)
   document.removeEventListener('visibilitychange', onVisibility)
 })
 </script>

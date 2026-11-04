@@ -282,6 +282,11 @@ const sources = computed(() =>
   .tile-inner {
     animation: none;
   }
+  /* 全局规则会把闪烁压成 0.01ms，改为锁定期间静态高亮 */
+  .tile[data-lock] .tile-inner::after {
+    animation: none;
+    opacity: 1;
+  }
 }
 
 @media (max-width: 640px) {
