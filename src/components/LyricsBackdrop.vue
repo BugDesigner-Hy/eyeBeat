@@ -7,7 +7,7 @@ import { usePlayerStore } from '../stores/player'
 const player = usePlayerStore()
 const lyrics = useLyricsStore()
 
-/** 逐字填充�?1/8 量化，和歌词面板保持一致的像素扫描�?*/
+/** 逐字填充按 1/8 量化，和歌词面板保持一致的像素扫描感 */
 const WORD_STEPS = 8
 
 const at = (i: number) => (i >= 0 ? (lyrics.lines[i] ?? null) : null)
@@ -51,7 +51,7 @@ function wordProgress(w: LyricWord): number {
 
 <style scoped>
 .backdrop {
-  /* ???????ease-in ??????????????? */
+  /* 退场用两头缓：ease-in 开头太慢，鼠标动了之后像没反应 */
   --ease-exit: cubic-bezier(0.33, 0, 0.67, 1);
   position: fixed;
   inset: 0 0 var(--dock-h);
@@ -86,7 +86,7 @@ function wordProgress(w: LyricWord): number {
   line-clamp: 2;
   overflow: hidden;
   filter: drop-shadow(0 0 18px color-mix(in srgb, var(--accent) 45%, transparent));
-  /* 横向扫描线纹理，代替像素字体带来的“屏幕感”，同时不影响中文字�?*/
+  /* 横向扫描线纹理，代替像素字体带来的“屏幕感”，同时不影响中文字形 */
   mask-image: repeating-linear-gradient(0deg, #000 0 3px, rgba(0, 0, 0, 0.6) 3px 4px);
 }
 
@@ -144,7 +144,9 @@ function wordProgress(w: LyricWord): number {
 }
 
 /*
- * 进入：一道扫描光自下而上显影�? * 退出：外圈先散（标签、上下句、翻译），当前句最后消失；总长要和 App.vue �?Transition �?leave 时长一�? */
+ * 进入：一道扫描光自下而上显影。
+ * 退出：外圈先散（标签、上下句、翻译），当前句最后消失；总长要和 App.vue 里 Transition 的 leave 时长一致
+ */
 .ambient-enter-active {
   animation: ambient-in 900ms var(--ease-out) both;
 }
@@ -188,7 +190,7 @@ function wordProgress(w: LyricWord): number {
   }
 }
 
-/* 保留原有的辉光再叠模糊，滤镜列表前缀一致才能平滑插�?*/
+/* 保留原有的辉光再叠模糊，滤镜列表前缀一致才能平滑插值 */
 @keyframes ambient-out-line {
   to {
     opacity: 0;
