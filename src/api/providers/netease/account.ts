@@ -2,7 +2,11 @@ import type { AccountApi, AccountProfile, QrLoginState } from '../../types'
 import { isLoggedIn, ncm, setSessionCookie } from './client'
 
 interface StatusRes {
-  data?: { profile?: { userId: number; nickname: string; avatarUrl: string } | null }
+  data?: {
+    /** vipType：0 非会员，10 音乐包，11 黑胶 VIP */
+    profile?: { userId: number; nickname: string; avatarUrl: string; vipType?: number } | null
+    account?: { vipType?: number } | null
+  }
 }
 
 let cachedUid: string | null = null
@@ -33,7 +37,12 @@ export const neteaseAccount: AccountApi = {
       return null
     }
     cachedUid = String(p.userId)
-    return { id: cachedUid, nickname: p.nickname, avatar: p.avatarUrl.replace(/^http:/, 'https:') } satisfies AccountProfile
+    return {
+      id: cachedUid,
+      nickname: p.nickname,
+      avatar: p.avatarUrl.replace(/^http:/, 'https:'),
+      vip: (p.vipType || res.data?.account?.vipType || 0) > 0,
+    } satisfies AccountProfile
   },
 
   async createQr() {
