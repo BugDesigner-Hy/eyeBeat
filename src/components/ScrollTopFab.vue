@@ -126,4 +126,11 @@ onBeforeUnmount(() => {
     transition: none;
   }
 }
+
+/* 手机没有播放栏收起箭头，置顶贴右 */
+@media (max-width: 640px) {
+  .stf {
+    right: max(16px, env(safe-area-inset-right));
+  }
+}
 </style>

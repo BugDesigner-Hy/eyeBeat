@@ -39,6 +39,8 @@ let chargeRaf = 0
 let chargeDir = 0
 let chargeAt = 0
 let chargeFrom = 0
+/** 手指/鼠标按住开机键（移动端没有悬停） */
+let holding = false
 
 async function playShutCrt() {
   const el = crt.value
@@ -122,12 +124,41 @@ function tickCharge(now: number) {
   const t = Math.min(1, (now - chargeAt) / dur)
   const eased = chargeDir > 0 ? 1 - (1 - t) ** 3 : t * t
   charge.value = chargeDir > 0 ? chargeFrom + (1 - chargeFrom) * eased : chargeFrom * (1 - eased)
-  if (t < 1 && (chargeDir > 0 ? hovering.value : !hovering.value)) {
+  const charging = hovering.value || holding
+  if (chargeDir > 0 && holding && charge.value >= 0.995) {
+    charge.value = 1
+    holding = false
+    powerOn()
+    return
+  }
+  if (t < 1 && (chargeDir > 0 ? charging : !charging)) {
     chargeRaf = requestAnimationFrame(tickCharge)
     return
   }
-  if (chargeDir > 0 && hovering.value) charge.value = 1
-  if (chargeDir < 0 && !hovering.value) charge.value = 0
+  if (chargeDir > 0 && charging) charge.value = 1
+  if (chargeDir < 0 && !charging) charge.value = 0
+}
+
+function onPowerDown(e: PointerEvent) {
+  if (e.button !== 0) return
+  e.preventDefault()
+  holding = true
+  try {
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  } catch {
+    /* ignore */
+  }
+  onPowerEnter()
+}
+
+function onPowerUp(e: PointerEvent) {
+  if (e.button !== 0 || !holding) return
+  holding = false
+  if (armed.value) {
+    powerOn()
+    return
+  }
+  onPowerLeave()
 }
 
 function onPowerEnter() {
@@ -192,11 +223,15 @@ onBeforeUnmount(() => {
         class="po-power"
         :class="{ armed, charging: hovering && !armed }"
         :style="{ '--p': charge.toFixed(3) }"
-        :title="armed ? '开机（P）' : '悬停充能合圆后点击开机'"
-        :aria-label="armed ? '开机' : '悬停充能合圆后可开机'"
+        :title="armed ? '开机（P）' : '按住充能合圆后开机'"
+        :aria-label="armed ? '开机' : '按住充能合圆后可开机'"
         :aria-disabled="!armed"
         @pointerenter="onPowerEnter"
         @pointerleave="onPowerLeave"
+        @pointerdown="onPowerDown"
+        @pointerup="onPowerUp"
+        @pointercancel="onPowerUp"
+        @contextmenu.prevent
         @click="onPowerClick"
       >
         <svg class="po-ring" viewBox="0 0 64 64" aria-hidden="true">
@@ -280,9 +315,21 @@ onBeforeUnmount(() => {
   cursor: default;
   opacity: 0.32;
   filter: brightness(0.72) saturate(0.7);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
   transition:
     opacity 280ms var(--ease-out, ease),
     filter 280ms var(--ease-out, ease);
+}
+
+.po-power svg {
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .po-power:hover,

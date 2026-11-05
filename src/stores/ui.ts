@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, shallowRef } from 'vue'
 
 const BAR_KEY = 'himusic.barCollapsed'
+const BOOTED_KEY = 'himusic.booted'
 const IDLE_MS = 30_000
 
 /** 手机端详情页的分页：0 播放、1 歌词、2 信息、3 评论 */
@@ -22,8 +23,8 @@ export const useUiStore = defineStore('ui', () => {
   /** 桌面窄屏（< 1440px）详情页的评论抽屉 */
   const commentsOpen = ref(false)
   const menuOpen = ref(false)
-  /** 全屏关机待机；不写 localStorage，刷新即开机 */
-  const poweredOff = ref(false)
+  /** 全屏关机待机。第一次打开（尚未开机过）停在待机；开机成功后记住，之后刷新直接进封面墙 */
+  const poweredOff = ref(localStorage.getItem(BOOTED_KEY) !== '1')
   /** 关机前是否在播放，开机后用于续播 */
   const resumeOnBoot = ref(false)
   const installPrompt = shallowRef<InstallPromptEvent | null>(null)
@@ -63,6 +64,7 @@ export const useUiStore = defineStore('ui', () => {
       lyricsVisible.value = false
     }
     poweredOff.value = v
+    if (!v) localStorage.setItem(BOOTED_KEY, '1')
   }
 
   /** 关机屏外的入口（顶栏 / P）请求开机，由 PowerOffScreen 播 CRT 后关 poweredOff */
