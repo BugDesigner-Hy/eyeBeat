@@ -52,12 +52,38 @@ const VIP_LEVELS: Record<string, boolean> = { green: true, super: true, free: fa
 
 const idOf = (p: ProfileNode) => p.str_musicid || p.musicid || p.uin || p.id
 
+/** 昵称可能出现的键名，按可信度排序（name 放最后，避免抓到专辑/歌手名） */
+const NICK_KEYS = ['nickname', 'nickName', 'nick', 'userName', 'username', 'displayName', 'name']
+/** 头像同理：上游把头像放在 info.logo 里 */
+const AVATAR_KEYS = ['avatarUrl', 'avatarurl', 'avatar', 'logo', 'headUrl', 'headurl']
+
+/**
+ * `/login/status` 返回的是「凭证字段 + 上游 GetLoginUserInfo」合并后的对象：
+ * 凭据那层是 musicid / nickname / avatarUrl，上游那层把账号信息埋在 `info` 里，
+ * 键名还可能变。所以按候选键做一次限深查找，而不是写死层级。
+ */
+function pickByKeys(node: unknown, keys: string[], depth = 0): string {
+  if (!node || typeof node !== 'object' || depth > 4) return ''
+  const obj = node as Record<string, unknown>
+  for (const key of keys) {
+    const value = obj[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  for (const value of Object.values(obj)) {
+    const hit = pickByKeys(value, keys, depth + 1)
+    if (hit) return hit
+  }
+  return ''
+}
+
 async function readProfile(): Promise<AccountProfile | null> {
   const res = await qq<StatusRes>('/login/status').catch(() => null)
   const p = res?.data?.profile ?? res?.profile
   const id = p ? idOf(p) : ''
-  const nickname = p?.nickname || p?.nick || p?.name || p?.userName || p?.info?.nickname || ''
-  const avatar = p?.avatarUrl || p?.info?.logo || ''
+  // info 是上游 GetLoginUserInfo 的账号资料，比凭据那层更完整，优先读它
+  const nickname = (p ? pickByKeys(p.info, NICK_KEYS) || pickByKeys(p, NICK_KEYS) : '')
+  const avatar = p ? pickByKeys(p.info, AVATAR_KEYS) || pickByKeys(p, AVATAR_KEYS) : ''
+  if (import.meta.env.DEV && p) console.debug('[qq] profile', p)
   if (!id && !nickname) return null
   const vip = await qq<VipRes>('/user/vip')
     .then((v) => VIP_LEVELS[String(v.vipLevel ?? '')])
