@@ -14,7 +14,7 @@ const CROWN: [number, number, number][] = [
 </script>
 
 <template>
-  <span class="vip" role="img" aria-label="网易云会员" title="网易云会员">
+  <span class="vip" role="img" aria-label="会员" title="会员">
     <svg viewBox="0 0 7 6" shape-rendering="crispEdges" aria-hidden="true">
       <rect v-for="[x, y, w] in CROWN" :key="`${x}-${y}`" :x="x" :y="y" :width="w" height="1" />
     </svg>

@@ -256,14 +256,14 @@ export function useCommands() {
           ? {
               id: 'account',
               group: 'SYSTEM',
-              title: t('cmd.account', { name: account.profile?.nickname ?? '' }),
+              title: t('cmd.account', { name: account.profile?.nickname ?? '', source: provider.name }),
               keywords: 'account login logout netease',
               run: () => account.openLogin(true),
             }
           : {
               id: 'login',
               group: 'SYSTEM',
-              title: t('cmd.login'),
+              title: t('cmd.login', { source: provider.name }),
               keywords: 'account login netease qr',
               run: () => account.openLogin(true),
             },

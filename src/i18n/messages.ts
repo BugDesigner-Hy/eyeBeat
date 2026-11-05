@@ -64,8 +64,8 @@ const en: Dict = {
   'cmd.powerOn': 'Power on',
   'cmd.powerOff': 'Power off',
   'cmd.clearLyrics': 'Clear lyrics cache',
-  'cmd.account': 'NetEase account: {name}',
-  'cmd.login': 'Scan to log in (NetEase)',
+  'cmd.account': '{source} account: {name}',
+  'cmd.login': 'Sign in to {source}',
   'cmd.install': 'Install as app (PWA)',
 
   'accent.phosphor': 'Phosphor',
@@ -87,8 +87,8 @@ const en: Dict = {
 
   'header.search': 'Search',
   'header.palette': 'Command palette',
-  'header.account': 'NetEase account',
-  'header.login': 'Scan to log in (NetEase)',
+  'header.account': '{source} account',
+  'header.login': 'Sign in to {source}',
   'header.switchSrc': 'Switch to {name}',
   'header.power': 'Power off (P)',
   'header.menu': 'Menu',
@@ -187,8 +187,8 @@ const zh: Dict = {
   'cmd.powerOn': '开机',
   'cmd.powerOff': '关机',
   'cmd.clearLyrics': '清除歌词缓存',
-  'cmd.account': '网易云账号：{name}',
-  'cmd.login': '扫码登录网易云',
+  'cmd.account': '{source}账号：{name}',
+  'cmd.login': '扫码登录 {source}',
   'cmd.install': '安装为应用（PWA）',
 
   'accent.phosphor': '磷光绿',
@@ -210,8 +210,8 @@ const zh: Dict = {
 
   'header.search': '搜索',
   'header.palette': '命令面板',
-  'header.account': '网易云账号',
-  'header.login': '扫码登录网易云',
+  'header.account': '{source}账号',
+  'header.login': '扫码登录 {source}',
   'header.switchSrc': '切换到 {name}',
   'header.power': '关机（P）',
   'header.menu': '菜单',

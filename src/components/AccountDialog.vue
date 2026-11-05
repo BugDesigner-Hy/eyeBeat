@@ -22,11 +22,20 @@ let alive = true
 
 const STATUS: Record<Phase, string> = {
   loading: '正在生成二维码',
-  waiting: '打开网易云音乐 App 扫码',
+  waiting: '',
   scanned: '已扫码，请在手机上确认',
   expired: '二维码已过期',
   error: '',
 }
+
+/** 各音源的扫码入口与弹窗标识；未列出的音源用通用文案 */
+const SCAN_HINT: Record<string, { app: string; tag: string }> = {
+  netease: { app: '网易云音乐 App', tag: 'NETEASE' },
+  qq: { app: 'QQ 音乐 App', tag: 'QQMUSIC' },
+}
+
+const hint = SCAN_HINT[provider.id] ?? { app: `${provider.name} App`, tag: provider.id.toUpperCase() }
+const waitingText = `打开${hint.app}扫码`
 
 async function createQr() {
   clearTimeout(timer)
@@ -52,7 +61,7 @@ function poll() {
       if (!alive || key !== ticket.value?.key) return
       if (state.status === 'authorized') {
         account.setProfile(state.profile)
-        player.showNotice(state.profile ? `已登录：${state.profile.nickname}` : '已登录网易云')
+        player.showNotice(state.profile ? `已登录：${state.profile.nickname}` : '已登录')
         account.openLogin(false)
         return
       }
@@ -67,7 +76,7 @@ function poll() {
 
 async function logout() {
   await account.logout()
-  player.showNotice('已退出网易云账号')
+  player.showNotice('已退出登录')
   account.openLogin(false)
 }
 
@@ -89,9 +98,9 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="acct-mask" @pointerdown.self="account.openLogin(false)">
-    <div class="acct" role="dialog" aria-label="网易云账号">
+    <div class="acct" role="dialog" :aria-label="`${provider.name} 账号`">
       <header class="acct-head">
-        <span class="acct-label">NETEASE // ACCOUNT</span>
+        <span class="acct-label">{{ hint.tag }} // ACCOUNT</span>
         <button type="button" class="txt-btn" aria-label="关闭" @click="account.openLogin(false)">[ESC]</button>
       </header>
 
@@ -110,10 +119,10 @@ onBeforeUnmount(() => {
           <span v-else-if="phase === 'scanned'" class="qr-msg ok">✓</span>
         </div>
         <p class="status" :class="{ err: phase === 'error' }">
-          {{ phase === 'error' ? `ERR::${error}` : STATUS[phase] }}
+          {{ phase === 'error' ? `ERR::${error}` : phase === 'waiting' ? waitingText : STATUS[phase] }}
         </p>
         <button v-if="phase === 'error'" type="button" class="txt-btn" @click="createQr">[RETRY]</button>
-        <p class="hint">登录后可播放完整版歌曲，并解锁「每日推荐」「我喜欢的音乐」。凭证只保存在本机浏览器。</p>
+        <p class="hint">登录后可播放完整版歌曲。凭证只保存在本机浏览器，退出登录即清除。</p>
       </div>
     </div>
   </div>

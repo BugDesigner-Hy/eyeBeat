@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { nextProvider, switchProvider } from '../api'
+import { nextProvider, provider, switchProvider } from '../api'
 import { useI18n } from '../i18n'
 import { useAccountStore } from '../stores/account'
 import { usePlayerStore } from '../stores/player'
@@ -50,7 +50,7 @@ function clear() {
         type="button"
         class="txt-btn acct-btn"
         :class="{ on: account.loggedIn }"
-        :title="account.loggedIn ? t('header.account') : t('header.login')"
+        :title="account.loggedIn ? t('header.account', { source: provider.name }) : t('header.login', { source: provider.name })"
         @click="account.openLogin(true)"
       >
         <PixelAvatar v-if="account.profile" :seed="account.profile.id" :size="18" />
