@@ -334,12 +334,14 @@ QQ 音乐的封面 CDN（`y.gtimg.cn`）不带 CORS 头，canvas 读不到像素
 
 ## 更新日志
 
-当前版本 [v0.1.0](https://github.com/BugDesigner-Hy/eyeBeat/releases/tag/v0.1.0)（首个公开版本）。`main` 上已合并、尚未发版的改动：
+**[v0.2.0](https://github.com/BugDesigner-Hy/eyeBeat/releases/tag/v0.2.0)**（当前）—— 接入 QQ 音乐音源
 
 - **QQ 音乐音源**：榜单 / 搜索 / 歌词 / 评论 / 详情 / 扫码登录 / 「我喜欢的音乐」，API 服务由 Vite 插件自动拉起
 - **登录弹窗支持多音源**：标题、扫码提示与文案不再写死「网易云」
 - **顶栏 GitHub 入口**：桌面与平板是图标按钮，手机收进 SYSTEM MENU，命令面板也能搜到
-- **顶栏不再折行**：音源名是中文（`SRC::QQ音乐`）时也保持单行
+- **修复**：顶栏中文音源名折行、QQ 音乐昵称显示为占位文案、截图脚本的开机状态键失效
+
+**[v0.1.0](https://github.com/BugDesigner-Hy/eyeBeat/releases/tag/v0.1.0)** —— 首个公开版本
 
 历史版本见 [Releases](https://github.com/BugDesigner-Hy/eyeBeat/releases)。
 
