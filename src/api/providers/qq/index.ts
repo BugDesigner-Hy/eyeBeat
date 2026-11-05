@@ -29,6 +29,7 @@ const SHELVES: Shelf[] = [
   { id: 'new', name: '新歌榜', tag: 'CHART / NEW' },
   { id: 'guofeng', name: '国风热歌榜', tag: 'CHART / GUOFENG' },
   { id: 'douyin', name: '抖音热歌榜', tag: 'CHART / DOUYIN' },
+  { id: 'liked', name: '我喜欢的音乐', tag: 'LIBRARY / LIKED', requiresLogin: true },
 ]
 
 interface QqSinger {
@@ -226,6 +227,14 @@ export const qqProvider: MusicProvider = {
   account: qqAccount,
 
   async getShelf(id, { limit = 40, offset = 0 }: PageOptions = {}) {
+    if (id === 'liked') {
+      // 需要登录；未登录时上游回 401，客户端会抛「需要登录 QQ 音乐」
+      const res = await qq<{ songs?: QqSong[]; total?: number; more?: boolean }>('/user/liked-songs', {
+        limit,
+        offset,
+      })
+      return (res.songs ?? []).map(toTrack)
+    }
     const res = await qq<{ songs?: QqSong[] }>('/recommend/toplist', {
       id: CHART_IDS[id] ?? CHART_IDS.hot,
       limit,
