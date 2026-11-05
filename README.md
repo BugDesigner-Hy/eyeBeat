@@ -35,7 +35,7 @@
 
 视觉是像素 / 霓虹 / 终端：中文用 Ark Pixel 12px，拉丁文用 VT323 与 Silkscreen，动效尽量做成「机器正在工作」的样子。待机时屏幕像 CRT 老电视一样关掉，只留七段数码管时钟和一只跟着光标转动的机器人。
 
-纯前端实现，没有后端；播放进度、设置、评论缓存都存在浏览器本地。已适配桌面与手机，可以安装成 App 离线使用。
+纯前端实现，没有后端；播放进度、设置、评论缓存都存在浏览器本地。已适配桌面与手机，可以安装成 App 离线使用。顶栏右上角的 GitHub 图标直达源码仓库。
 
 **适合**：想要一个好看、打开就能听、还能直接分享链接的网页播放器；喜欢像素 / CRT / 霓虹风格。
 
@@ -177,7 +177,7 @@ server {
 | 歌词 | LRCLIB 多候选匹配，单曲偏移 ±0.1s 与全局偏移（补偿蓝牙延迟），像素字体可切 |
 | 详情与评论 | 黑胶封面、歌词、评论、接下来播放、数据面板；宽屏可把三栏分别折叠成细轨 |
 | 待机屏 | CRT 关机动画、七段数码管时钟、互动机器人；`P` 键或长按充能开机 |
-| 多音源 | [Audius](https://audius.co) 开箱可用；网易云、QQ 音乐（需自备 API，QQ 音乐取流要扫码登录）；[Jamendo](https://www.jamendo.com)（需 `client_id`） |
+| 多音源 | Audius / 网易云 / QQ 音乐 / Jamendo，能力差异与配置见下方[音乐源](#音乐源) |
 | 命令面板 | `Ctrl/Cmd + K` 搜到所有开关：音源、EQ、配色、布局、语言、歌词偏移 |
 | 安装与离线 | PWA 可安装；中文字体按 `unicode-range` 分片按需加载，不进预缓存 |
 
@@ -191,6 +191,25 @@ server {
 
 </details>
 
+## 音乐源
+
+顶栏 `SRC::` 循环切换，或在命令面板（`Ctrl/Cmd + K`）里搜音源名。
+
+| 音源 | 榜单 / 搜索 | 歌词 | 评论 | 播放 | 需要什么 |
+| --- | --- | --- | --- | --- | --- |
+| [Audius](https://audius.co) | ✅ / ✅ | LRCLIB | ✅ | 开箱即播 | 无需配置 |
+| 网易云 | ✅ / ✅ | 自带歌词 | ✅ | 部分需要登录 | 自备 API：`VITE_NETEASE_API_BASE` |
+| QQ 音乐 | ✅ / ✅ | 自带歌词 | ✅ | 基本都要登录 | 自备 API：`VITE_QQ_API_BASE` |
+| [Jamendo](https://www.jamendo.com) | ✅ / ✅ | LRCLIB | — | 开箱即播 | `client_id` |
+
+几个差别值得知道：
+
+- **登录**：顶栏 `[LOGIN]` 扫码，弹窗会按当前音源自动出码（网易云 / QQ 音乐）。凭证只保存在本机，退出登录即清除。
+- **分区**：需要登录的分区（网易云的「每日推荐」「我喜欢的音乐」，QQ 音乐的「我喜欢的音乐」）**登录后才出现**；未登录只有公开榜单。
+- **音质**：QQ 音乐按账号权限依次尝试 FLAC → 320K → 128K；网易云固定取 `exhigh`。
+- **主色取色依赖封面 CORS**：Audius、网易云、Jamendo 的封面 CDN 放行，能取色；QQ 音乐的 `y.gtimg.cn` 不放行，切过去会退回固定配色。音频 CDN 是放行的，所以频谱与音效不受影响。
+- **平台差异**：网易云与 QQ 音乐都由社区维护的非官方接口提供，部署到公网前请自行评估；官方演示站只带 Audius。
+
 ## 配置
 
 复制 [`.env.example`](.env.example) 为 `.env.local`（或沿用仓库内的 `.env.development`），改完需重启。
@@ -200,6 +219,8 @@ server {
 | `VITE_MUSIC_PROVIDER` | `audius` | 默认音源：`audius` \| `netease` \| `qq` \| `jamendo` |
 | `VITE_NETEASE_API_BASE` | 空 | 网易云 API 地址。以 `/` 开头时由 dev server 代理并自动起本地服务（如 `/ncm`）；填完整 URL 则直接请求 |
 | `NETEASE_API_PORT` | `3000` | 内置网易云 API 服务端口 |
+| `VITE_QQ_API_BASE` | 空 | QQ 音乐 API 地址（[`@yakult-green-tea/qq-music-api`](https://github.com/yakult-green-tea/qq-music-api)）。`/qq` 由 dev server 拉起并代理；也可填自部署服务的地址 |
+| `QQ_API_PORT` | `3200` | 内置 QQ 音乐 API 服务端口 |
 | `VITE_JAMENDO_CLIENT_ID` | 空 | 在 [Jamendo Dev Portal](https://devportal.jamendo.com/) 申请；未配置则不出现在切换列表 |
 | `BASE_PATH` | `/` | 构建时的站点子路径，部署到 `https://<user>.github.io/eyeBeat/` 时为 `/eyeBeat/` |
 
@@ -276,6 +297,13 @@ QQ 音乐的封面 CDN（`y.gtimg.cn`）不带 CORS 头，canvas 读不到像素
 </details>
 
 <details>
+<summary><b>QQ 音乐登录后多出一个「我喜欢的音乐」？</b></summary>
+
+对。需要登录的分区在登录后才出现，和网易云的「每日推荐」是同一套规则。数据走 `/user/liked-songs`，带真正的分页，不会一次拉全量。
+
+</details>
+
+<details>
 <summary><b>想换配色、布局、字体或者语言？</b></summary>
 
 全部在命令面板（`Ctrl/Cmd + K`）里：强调色、瀑布流 / 无限画布、歌词与评论的像素字体、歌词偏移、中英文切换。
@@ -306,7 +334,14 @@ QQ 音乐的封面 CDN（`y.gtimg.cn`）不带 CORS 头，canvas 读不到像素
 
 ## 更新日志
 
-见 [Releases](https://github.com/BugDesigner-Hy/eyeBeat/releases)，当前版本 [v0.1.0](https://github.com/BugDesigner-Hy/eyeBeat/releases/tag/v0.1.0)（首个公开版本）。
+当前版本 [v0.1.0](https://github.com/BugDesigner-Hy/eyeBeat/releases/tag/v0.1.0)（首个公开版本）。`main` 上已合并、尚未发版的改动：
+
+- **QQ 音乐音源**：榜单 / 搜索 / 歌词 / 评论 / 详情 / 扫码登录 / 「我喜欢的音乐」，API 服务由 Vite 插件自动拉起
+- **登录弹窗支持多音源**：标题、扫码提示与文案不再写死「网易云」
+- **顶栏 GitHub 入口**：桌面与平板是图标按钮，手机收进 SYSTEM MENU，命令面板也能搜到
+- **顶栏不再折行**：音源名是中文（`SRC::QQ音乐`）时也保持单行
+
+历史版本见 [Releases](https://github.com/BugDesigner-Hy/eyeBeat/releases)。
 
 ## License
 
