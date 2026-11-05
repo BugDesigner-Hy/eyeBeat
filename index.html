@@ -6,8 +6,10 @@
     <meta name="theme-color" content="#0a0c0f" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <!-- 140KB 的 unicode-range 表，异步加载不阻塞首屏 -->
-    <link rel="stylesheet" href="/fonts/ark-pixel-12/ark-pixel-12.css" media="print" onload="this.media='all'" />
+    <!-- 中文像素字体：56 个 unicode-range 子集，按需下载。
+         必须是普通样式表：曾经用 media="print" + onload 切 media 做异步，
+         一旦 onload 没触发，整站中文就退回系统字体（歌词看着就不像素了）。 -->
+    <link rel="stylesheet" href="/fonts/ark-pixel-12/ark-pixel-12.css" />
     <title>EyeBeat</title>
   </head>
   <body>
