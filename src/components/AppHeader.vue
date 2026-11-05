@@ -309,10 +309,11 @@ function clear() {
 
 @media (max-width: 640px) {
   .top {
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
-    gap: 4px;
+    /* 品牌 · 搜索 · GitHub · 电源 · 菜单 */
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+    gap: 2px;
     height: calc(56px + env(safe-area-inset-top));
-    padding: env(safe-area-inset-top) 8px 0 14px;
+    padding: env(safe-area-inset-top) 6px 0 12px;
   }
   .search {
     height: 36px;
@@ -321,16 +322,13 @@ function clear() {
   .search input {
     font-size: 16px;
   }
-  /* 手机上顶栏太挤，GitHub 入口收进 SYSTEM MENU */
-  .mobile-gh {
-    display: none;
-  }
   .mobile-pwr,
+  .mobile-gh,
   .menu-btn {
     display: grid;
     place-items: center;
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
     padding: 0;
     border: 0;
     background: none;
