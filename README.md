@@ -17,6 +17,7 @@
 [![Vue 3](https://img.shields.io/badge/Vue-3-42b883?style=flat-square&logo=vuedotjs&logoColor=white)](https://vuejs.org)
 [![Vite 8](https://img.shields.io/badge/Vite-8-646cff?style=flat-square&logo=vite&logoColor=white)](https://vite.dev)
 [![PWA ready](https://img.shields.io/badge/PWA-ready-5a0fc8?style=flat-square)](https://web.dev/progressive-web-apps/)
+[![Release](https://img.shields.io/github/v/release/BugDesigner-Hy/eyeBeat?style=flat-square&label=release)](https://github.com/BugDesigner-Hy/eyeBeat/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3fb950?style=flat-square)](LICENSE)
 
 [**▶ 在线体验**](https://bugdesigner-hy.github.io/eyeBeat/) ·
@@ -288,6 +289,10 @@ scripts/          网易云 API 的 Vite 插件、图标生成、截图脚本
 - [NeteaseCloudMusicApiEnhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced) 提供开发期网易云接口
 - [Ark Pixel Font](https://github.com/TakWolf/ark-pixel-font)、[VT323](https://fonts.google.com/specimen/VT323)、[Silkscreen](https://fonts.google.com/specimen/Silkscreen) 提供字体
 - 布局与交互参考了 [Folia](https://github.com/chthollyphile/folia-major) 等音乐播放器项目
+
+## 更新日志
+
+见 [Releases](https://github.com/BugDesigner-Hy/eyeBeat/releases)，当前版本 [v0.1.0](https://github.com/BugDesigner-Hy/eyeBeat/releases/tag/v0.1.0)（首个公开版本）。
 
 ## License
 
