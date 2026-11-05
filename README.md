@@ -109,10 +109,10 @@ pnpm dev
 
 终端出现 `Local: http://localhost:5173/` 即启动成功，用浏览器打开即可。
 
-开发模式会自动在子进程里拉起内置的网易云 API（默认占用 `3000` 端口，日志前缀 `[ncm]`），并代理到 `/ncm`，所以本地默认音源是网易云。端口被占用时会直接复用已在运行的服务。
+开发模式会同时拉起两个本地 API 子进程：网易云（端口 `3000`，日志前缀 `[ncm]`，代理到 `/ncm`）和 QQ 音乐（端口 `3200`，日志前缀 `[qq]`，代理到 `/qq`）。端口被占用时会直接复用已在运行的服务。
 
 > [!TIP]
-> 想换默认音源：复制 `.env.example` 为 `.env.local`，改 `VITE_MUSIC_PROVIDER`（`audius` / `netease` / `jamendo`），**改完需重启 `pnpm dev`**。
+> 想换默认音源：复制 `.env.example` 为 `.env.local`，改 `VITE_MUSIC_PROVIDER`（`audius` / `netease` / `qq` / `jamendo`），**改完需重启 `pnpm dev`**。
 
 其他常用命令：
 
@@ -122,7 +122,7 @@ pnpm preview    # 本地预览构建产物
 ```
 
 > [!NOTE]
-> 没有配置 Jamendo 的 `client_id` 时，Jamendo 不会出现在音源切换列表里；网易云则需要 API 地址，否则切过去会提示未配置。线上演示站没配网易云，默认用 Audius。
+> 没有配置 Jamendo 的 `client_id` 时，Jamendo 不会出现在切换列表里；网易云与 QQ 音乐都需要 API 地址，否则不会出现在列表里。线上演示站没有后端，默认用 Audius。
 
 ## 部署成自己的站点
 
@@ -177,7 +177,7 @@ server {
 | 歌词 | LRCLIB 多候选匹配，单曲偏移 ±0.1s 与全局偏移（补偿蓝牙延迟），像素字体可切 |
 | 详情与评论 | 黑胶封面、歌词、评论、接下来播放、数据面板；宽屏可把三栏分别折叠成细轨 |
 | 待机屏 | CRT 关机动画、七段数码管时钟、互动机器人；`P` 键或长按充能开机 |
-| 多音源 | [Audius](https://audius.co) 开箱可用、网易云（需自备 API）、[Jamendo](https://www.jamendo.com)（需 `client_id`） |
+| 多音源 | [Audius](https://audius.co) 开箱可用；网易云、QQ 音乐（需自备 API，QQ 音乐取流要扫码登录）；[Jamendo](https://www.jamendo.com)（需 `client_id`） |
 | 命令面板 | `Ctrl/Cmd + K` 搜到所有开关：音源、EQ、配色、布局、语言、歌词偏移 |
 | 安装与离线 | PWA 可安装；中文字体按 `unicode-range` 分片按需加载，不进预缓存 |
 
@@ -197,9 +197,9 @@ server {
 
 | 变量 | 默认 | 说明 |
 | --- | --- | --- |
-| `VITE_MUSIC_PROVIDER` | `audius` | 默认音源：`audius` \| `netease` \| `jamendo` |
+| `VITE_MUSIC_PROVIDER` | `audius` | 默认音源：`audius` \| `netease` \| `qq` \| `jamendo` |
 | `VITE_NETEASE_API_BASE` | 空 | 网易云 API 地址。以 `/` 开头时由 dev server 代理并自动起本地服务（如 `/ncm`）；填完整 URL 则直接请求 |
-| `NETEASE_API_PORT` | `3000` | 内置网易云 API 端口 |
+| `NETEASE_API_PORT` | `3000` | 内置网易云 API 服务端口 |
 | `VITE_JAMENDO_CLIENT_ID` | 空 | 在 [Jamendo Dev Portal](https://devportal.jamendo.com/) 申请；未配置则不出现在切换列表 |
 | `BASE_PATH` | `/` | 构建时的站点子路径，部署到 `https://<user>.github.io/eyeBeat/` 时为 `/eyeBeat/` |
 
@@ -226,7 +226,7 @@ server {
 
 ```
 src/
-  api/            音乐源适配器（audius / netease / jamendo）、歌词源（LRCLIB）
+  api/            音乐源适配器（audius / netease / qq / jamendo）、歌词源（LRCLIB）
   audio/          Web Audio 引擎、EQ、bitcrusher
   components/     界面组件（封面墙、详情页、待机屏、命令面板…）
   composables/    相机、折叠、响应式等组合式逻辑
@@ -234,7 +234,7 @@ src/
   utils/          六边形网格、取色、空间导航、IndexedDB
   i18n/           中英文案
 public/           图标、像素字体
-scripts/          网易云 API 的 Vite 插件、图标生成、截图脚本
+scripts/          本地 API 子进程插件（网易云 / QQ 音乐）、图标生成、截图脚本
 ```
 
 新增音源：在 `src/api/providers/` 实现 `src/api/types.ts` 里的 `MusicProvider`，再到 `src/api/index.ts` 注册即可。
@@ -261,6 +261,19 @@ scripts/          网易云 API 的 Vite 插件、图标生成、截图脚本
 它走的是非官方接口，随时可能失效，部分歌曲受版权限制。部署到公网时建议只用 Audius / Jamendo。切换音源：顶栏 `SRC::` 或命令面板。
 
 </details>
+<details>
+<summary><b>QQ 音乐为什么显示 LOCKED、只能试听？</b></summary>
+
+QQ 音乐的播放链接基本都要登录才给：点顶栏 `[LOGIN]`，用 QQ 音乐 App / 手机 QQ / 微信扫码即可。未登录时榜单、搜索、歌词、评论都正常，但多数歌取不到流。登录后按账号会员权限依次尝试 FLAC → 320K → 128K。
+
+</details>
+
+<details>
+<summary><b>切到 QQ 音乐后，主色不再跟着封面变了？</b></summary>
+
+QQ 音乐的封面 CDN（`y.gtimg.cn`）不带 CORS 头，canvas 读不到像素，所以取色退回固定配色。音频 CDN 是放行的，频谱与音效不受影响。想恢复取色可以自建一个给封面包 `Access-Control-Allow-Origin` 的图片代理。
+
+</details>
 
 <details>
 <summary><b>想换配色、布局、字体或者语言？</b></summary>
@@ -280,6 +293,7 @@ scripts/          网易云 API 的 Vite 插件、图标生成、截图脚本
 
 - 本项目仅供学习与个人使用，请遵守各音乐平台的服务条款与版权规定
 - 在线曲库、封面、歌词的版权归各自权利人所有，本项目不做再分发
+- 网易云与 QQ 音乐均通过社区维护的非官方接口接入，与对应平台无隶属或授权关系
 - 品牌名、像素字体与视觉资源请勿直接用于商业项目
 
 ## 致谢

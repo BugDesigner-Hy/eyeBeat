@@ -2,12 +2,14 @@ import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 import { neteaseApi } from './scripts/netease-api-plugin.ts'
+import { qqApi } from './scripts/qq-api-plugin.ts'
 
 const DAY = 86400
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const neteaseBase = env.VITE_NETEASE_API_BASE ?? ''
+  const qqBase = env.VITE_QQ_API_BASE ?? ''
   // 部署到子路径（如 GitHub Pages 的 /eyeBeat/）时用 BASE_PATH 指定；本地仍为根路径
   const base = (env.BASE_PATH || '/').replace(/\/*$/, '/')
 
@@ -18,6 +20,8 @@ export default defineConfig(({ mode }) => {
       // 相对路径表示由本地 dev / preview 服务代理到自带的 API 子进程
       neteaseBase.startsWith('/') &&
         neteaseApi({ prefix: neteaseBase.replace(/\/$/, ''), port: Number(env.NETEASE_API_PORT || 3000) }),
+      qqBase.startsWith('/') &&
+        qqApi({ prefix: qqBase.replace(/\/$/, ''), port: Number(env.QQ_API_PORT || 3200) }),
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['apple-touch-icon.png'],

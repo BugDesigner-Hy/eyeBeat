@@ -2,6 +2,7 @@ import { lrclibSource } from './lyrics/lrclib'
 import { audiusProvider } from './providers/audius'
 import { jamendoConfigured, jamendoProvider } from './providers/jamendo'
 import { neteaseConfigured, neteaseProvider, neteaseSearchLyricsSource } from './providers/netease'
+import { qqConfigured, qqProvider } from './providers/qq'
 import type { LyricsSource, MusicProvider, ProviderId } from './types'
 
 const PROVIDER_KEY = 'himusic.provider'
@@ -10,6 +11,7 @@ const providers: Partial<Record<ProviderId, MusicProvider>> = {
   audius: audiusProvider,
   ...(jamendoConfigured ? { jamendo: jamendoProvider } : {}),
   ...(neteaseConfigured ? { netease: neteaseProvider } : {}),
+  ...(qqConfigured ? { qq: qqProvider } : {}),
 }
 
 export const availableProviders = Object.values(providers) as MusicProvider[]
