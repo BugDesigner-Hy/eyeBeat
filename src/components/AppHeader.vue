@@ -152,7 +152,8 @@ function clear() {
   right: 0;
   z-index: 50;
   display: grid;
-  grid-template-columns: 1fr minmax(0, 420px) 1fr;
+  /* 第三列改成 auto：状态栏按内容取宽，不会被挤到折行 */
+  grid-template-columns: 1fr minmax(0, 420px) auto;
   align-items: center;
   gap: 24px;
   height: 72px;
@@ -214,6 +215,13 @@ function clear() {
   font-family: var(--font-mono);
   font-size: 16px;
   color: var(--text);
+  /* 中文音源名（QQ音乐）在这里不能被折成两行 */
+  white-space: nowrap;
+}
+
+.status > * {
+  flex: none;
+  white-space: nowrap;
 }
 
 .status .dim {
