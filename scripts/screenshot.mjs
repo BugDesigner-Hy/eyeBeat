@@ -47,7 +47,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 function preset(settings = {}) {
   return `try{
     localStorage.setItem('himusic.settings', ${JSON.stringify(JSON.stringify(settings))});
+    // 桌面与 App（手机 / 独立窗口）分开记开机状态，两个都要写
     localStorage.setItem('himusic.booted', '1');
+    localStorage.setItem('himusic.booted.app', '1');
   }catch(e){}`
 }
 

@@ -1,5 +1,6 @@
 import { computed } from 'vue'
 import { availableProviders, provider, switchProvider } from './api'
+import { REPO_URL } from './config'
 import { EQ_PRESETS } from './audio/eq'
 import { useI18n } from './i18n'
 import { useAccountStore } from './stores/account'
@@ -246,6 +247,14 @@ export function useCommands() {
         hint: 'P',
         active: ui.poweredOff,
         run: () => ui.powerToggle(),
+      },
+      {
+        id: 'github',
+        group: 'SYSTEM',
+        title: t('cmd.github'),
+        keywords: 'github repo repository source code star 仓库 源码',
+        hint: '↗',
+        run: () => window.open(REPO_URL, '_blank', 'noopener,noreferrer'),
       },
       { id: 'clear-lyrics', group: 'SYSTEM', title: t('cmd.clearLyrics'), keywords: 'cache clear', run: () => void lyrics.clearCache() },
     ]

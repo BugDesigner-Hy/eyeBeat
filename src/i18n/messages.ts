@@ -66,6 +66,7 @@ const en: Dict = {
   'cmd.clearLyrics': 'Clear lyrics cache',
   'cmd.account': '{source} account: {name}',
   'cmd.login': 'Sign in to {source}',
+  'cmd.github': 'Open the GitHub repository',
   'cmd.install': 'Install as app (PWA)',
 
   'accent.phosphor': 'Phosphor',
@@ -89,6 +90,7 @@ const en: Dict = {
   'header.palette': 'Command palette',
   'header.account': '{source} account',
   'header.login': 'Sign in to {source}',
+  'header.github': 'View source on GitHub',
   'header.switchSrc': 'Switch to {name}',
   'header.power': 'Power off (P)',
   'header.menu': 'Menu',
@@ -189,6 +191,7 @@ const zh: Dict = {
   'cmd.clearLyrics': '清除歌词缓存',
   'cmd.account': '{source}账号：{name}',
   'cmd.login': '扫码登录 {source}',
+  'cmd.github': '打开 GitHub 仓库',
   'cmd.install': '安装为应用（PWA）',
 
   'accent.phosphor': '磷光绿',
@@ -212,6 +215,7 @@ const zh: Dict = {
   'header.palette': '命令面板',
   'header.account': '{source}账号',
   'header.login': '扫码登录 {source}',
+  'header.github': '在 GitHub 上查看源码',
   'header.switchSrc': '切换到 {name}',
   'header.power': '关机（P）',
   'header.menu': '菜单',

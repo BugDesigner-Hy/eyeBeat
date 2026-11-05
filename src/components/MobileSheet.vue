@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { nextProvider, switchProvider } from '../api'
+import { REPO_URL } from '../config'
 import { useAccountStore } from '../stores/account'
 import { usePlayerStore } from '../stores/player'
 import { useSettingsStore } from '../stores/settings'
@@ -98,6 +99,12 @@ function run(fn: () => void) {
             <span class="ms-val ms-dim">[CTRL+K]</span>
           </button>
         </li>
+        <li style="--i: 4">
+          <a class="ms-row" :href="REPO_URL" target="_blank" rel="noopener noreferrer" @click="ui.toggleMenu(false)">
+            <span class="ms-key">GITHUB</span>
+            <span class="ms-val ms-dim">SOURCE ↗</span>
+          </a>
+        </li>
       </ul>
       <p class="ms-foot">
         {{ String(player.tracks.length).padStart(3, '0') }} TRK ·
@@ -185,6 +192,11 @@ function run(fn: () => void) {
   font-size: 18px;
   text-align: left;
   cursor: pointer;
+}
+
+a.ms-row {
+  box-sizing: border-box;
+  text-decoration: none;
 }
 
 .ms-row:active {
