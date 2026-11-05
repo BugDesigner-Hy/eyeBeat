@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/readme-banner.webp" alt="EyeBeat 封面墙" width="100%" />
+  <img src="docs/readme/wall.webp" alt="EyeBeat 封面墙：本月热歌榜" width="100%" />
 </p>
 
 <div align="center">
@@ -17,22 +17,16 @@
 [![Vue 3](https://img.shields.io/badge/Vue-3-42b883?style=flat-square&logo=vuedotjs&logoColor=white)](https://vuejs.org)
 [![Vite 8](https://img.shields.io/badge/Vite-8-646cff?style=flat-square&logo=vite&logoColor=white)](https://vite.dev)
 [![PWA ready](https://img.shields.io/badge/PWA-ready-5a0fc8?style=flat-square)](https://web.dev/progressive-web-apps/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-3fb950?style=flat-square)](LICENSE)
 
 [**▶ 在线体验**](https://bugdesigner-hy.github.io/eyeBeat/) ·
-[快速开始](#快速开始) ·
+[快速开始](#快速开始) · [界面一览](#界面一览) ·
 [特性](#特性) ·
 [部署](#部署成自己的站点) ·
 [常见问题](#常见问题) ·
 [反馈问题](https://github.com/BugDesigner-Hy/eyeBeat/issues)
 
 </div>
-
-<p align="center">
-  <img src="docs/readme-standby.webp" alt="待机屏：CRT 关机 + 七段时钟 + 机器人" width="49%" />
-  <img src="docs/readme-detail.webp" alt="详情页：黑胶、歌词、评论、队列" width="49%" />
-</p>
-
-<p align="center"><sub>待机屏 · 详情页（封面墙见页面顶部）</sub></p>
 
 ## 这是什么
 
@@ -45,6 +39,35 @@
 **适合**：想要一个好看、打开就能听、还能直接分享链接的网页播放器；喜欢像素 / CRT / 霓虹风格。
 
 **不适合**：要管理本地音乐文件、要桌面客户端、或者必须离线播放自有曲库 —— 那些需求更适合 [Folia](https://github.com/chthollyphile/folia-major)、[Navidrome](https://www.navidrome.org/)、[Feishin](https://github.com/jeffvli/feishin) 这类本地曲库播放器。
+
+## 界面一览
+
+<p align="center">
+  <img src="docs/readme/canvas.webp" alt="无限画布布局" width="49%" />
+  <img src="docs/readme/detail.webp" alt="详情页：黑胶、歌词、评论、队列、遥测" width="49%" />
+</p>
+
+<p align="center"><sub><b>无限画布布局</b>：封面散在纵深里，拖动即可漫游 · <b>详情页</b>：黑胶唱片、逐行歌词、热门评论、队列与遥测</sub></p>
+
+<p align="center">
+  <img src="docs/readme/lyrics.webp" alt="歌词面板与偏移控制" width="49%" />
+  <img src="docs/readme/fx.webp" alt="FX / EQ 面板" width="49%" />
+</p>
+
+<p align="center"><sub><b>歌词面板</b>：多候选源、单曲与全局偏移 · <b>FX 面板</b>：10 段 EQ、六套预设、8-bit 降位、交叉淡入</sub></p>
+
+<p align="center">
+  <img src="docs/readme/palette.webp" alt="命令面板" width="49%" />
+  <img src="docs/readme/standby.webp" alt="待机屏：CRT 关机 + 七段数码管时钟 + 机器人" width="49%" />
+</p>
+
+<p align="center"><sub><b>命令面板</b>：所有开关都能搜到 · <b>待机屏</b>：CRT 关机、七段时钟、盯着光标的机器人</sub></p>
+
+<p align="center">
+  <img src="docs/readme/mobile.webp" alt="移动端封面墙" width="230" />
+</p>
+
+<p align="center"><sub>移动端：两列封面墙，上滑歌词、右滑评论</sub></p>
 
 ## 快速开始
 
@@ -266,4 +289,6 @@ scripts/          网易云 API 的 Vite 插件、图标生成
 
 ## License
 
-当前**未选择开源许可证**，保留所有权利。如果打算让它成为可复用的开源项目，建议补一个 `LICENSE`（MIT 或 Apache-2.0 最适合这类前端项目），并在 fork 后公开发布时替换可能引起混淆的品牌资源。
+[MIT](LICENSE) © 2026 BugDesigner-Hy
+
+可以自由使用、修改、分发（包括商业用途），保留版权声明即可。如果你 fork 后公开发布，建议替换掉 EyeBeat 的名称与图标，避免和本项目混淆。
