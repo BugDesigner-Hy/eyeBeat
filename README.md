@@ -69,6 +69,8 @@
 
 <p align="center"><sub>移动端：两列封面墙，上滑歌词、右滑评论</sub></p>
 
+<sub>以上截图由 Chrome DevTools 协议自动抓取（`pnpm screenshot`），不含任何录屏水印，可随时重跑。</sub>
+
 ## 快速开始
 
 ### 环境要求
@@ -231,7 +233,7 @@ src/
   utils/          六边形网格、取色、空间导航、IndexedDB
   i18n/           中英文案
 public/           图标、像素字体
-scripts/          网易云 API 的 Vite 插件、图标生成
+scripts/          网易云 API 的 Vite 插件、图标生成、截图脚本
 ```
 
 新增音源：在 `src/api/providers/` 实现 `src/api/types.ts` 里的 `MusicProvider`，再到 `src/api/index.ts` 注册即可。
